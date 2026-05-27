@@ -1,61 +1,54 @@
-"""Celery task queue application and task definitions."""
-
-from celery import Celery
-
-from api.config import settings
-
-# Celery app configuration
-app = Celery(
-    "anpr",
-    broker=settings.redis_url,
-    backend=settings.redis_url,
-)
-
-app.conf.update(
-    task_serializer="json",
-    accept_content=["json"],
-    result_serializer="json",
-    timezone="UTC",
-    enable_utc=True,
-    task_track_started=True,
-    task_time_limit=30 * 60,  # 30 min hard limit
-    task_soft_time_limit=25 * 60,  # 25 min soft limit (graceful shutdown)
-    result_expires=3600,  # Expire results after 1 hour
-)
+"""Celery task definitions."""
+from workers.celery_app import celery_app
 
 
-@app.task(bind=True, max_retries=3)
-def detect_batch(self, frames: list) -> dict:
-    """
-    Async task: detect plates in a batch of frames.
+@celery_app.task(name="process_frame")
+def process_frame(stream_id: str, frame_bytes_b64: str, camera_id: str) -> dict:
+    """Process a frame through the ANPR pipeline.
 
     Args:
-        frames: List of frame dicts with image data, stream_id, timestamp.
+        stream_id: Stream identifier
+        frame_bytes_b64: Frame bytes as base64
+        camera_id: Camera identifier
 
     Returns:
-        dict with detection results, write to DB via sync task.
+        Detection results
     """
-    try:
-        # Stub: real implementation in Day 4
-        return {"status": "ok", "frames_processed": len(frames)}
-    except Exception as exc:
-        # Retry with exponential backoff
-        raise self.retry(exc=exc, countdown=2 ** self.request.retries)
+    # Implemented by ml-engineer in M3-M5
+    raise NotImplementedError("ML engineer will implement inference")
 
 
-@app.task(bind=True, max_retries=3)
-def cleanup_old_detections(self, days: int = 30) -> dict:
-    """
-    Async task: clean up old detections older than N days.
+@celery_app.task(name="check_watchlist_match")
+def check_watchlist_match(plate_id: str) -> dict:
+    """Check if detected plate matches any watchlist entries.
 
     Args:
-        days: Number of days to retain.
+        plate_id: Plate identifier
 
     Returns:
-        dict with cleanup stats.
+        Watchlist match details
     """
-    try:
-        # Stub: real implementation in Day 4
-        return {"status": "ok", "rows_deleted": 0}
-    except Exception as exc:
-        raise self.retry(exc=exc, countdown=2 ** self.request.retries)
+    # TODO: Implement watchlist matching
+    return {"matched": False}
+
+
+@celery_app.task(name="purge_expired_detections")
+def purge_expired_detections() -> dict:
+    """Nightly task: purge old detections per retention policy.
+
+    Returns:
+        Purge stats
+    """
+    # TODO: Implement retention-based purge
+    return {"deleted_count": 0}
+
+
+@celery_app.task(name="archive_audit_log_to_s3")
+def archive_audit_log_to_s3() -> dict:
+    """Nightly task: export audit log to S3, then delete old records.
+
+    Returns:
+        Archive stats
+    """
+    # TODO: Implement audit log archival
+    return {"archived_count": 0}
