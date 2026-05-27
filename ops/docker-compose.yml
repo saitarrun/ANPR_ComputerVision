@@ -128,7 +128,7 @@ services:
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
 
       # Database
-      DATABASE_URL: postgresql+psycopg://anpr:${POSTGRES_PASSWORD:-anpr_dev_pw}@postgres:5432/${POSTGRES_DB:-anpr}
+      DATABASE_URL: postgresql+asyncpg://anpr:${POSTGRES_PASSWORD:-anpr_dev_pw}@postgres:5432/${POSTGRES_DB:-anpr}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-anpr}
@@ -190,7 +190,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
       # Database
-      DATABASE_URL: postgresql+psycopg://anpr:${POSTGRES_PASSWORD:-anpr_dev_pw}@postgres:5432/${POSTGRES_DB:-anpr}
+      DATABASE_URL: postgresql+asyncpg://anpr:${POSTGRES_PASSWORD:-anpr_dev_pw}@postgres:5432/${POSTGRES_DB:-anpr}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-anpr}
