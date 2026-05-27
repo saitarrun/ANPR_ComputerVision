@@ -1,41 +1,23 @@
-# Multi-stage build: builder + runtime
-# Stage 1: Builder (compile dependencies, wheel creation)
-FROM python:3.11-slim as builder
-
-WORKDIR /build
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY pyproject.toml .
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install --user --no-cache-dir -e .
-
-# Stage 2: Runtime (minimal, production-ready)
 FROM python:3.11-slim
 
 WORKDIR /app
-RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Install minimal runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    postgresql-client \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed packages from builder
-COPY --from=builder /root/.local /home/appuser/.local
-ENV PATH=/home/appuser/.local/bin:$PATH
-
-# Copy source code
+# Copy project files
+COPY pyproject.toml pyproject.toml
 COPY . .
-RUN chown -R appuser:appuser /app
 
-USER appuser
+# Install Python dependencies
+RUN pip install --no-cache-dir -e .
+
+# Expose port (for API)
 EXPOSE 8000
 
-# Healthcheck: FastAPI /healthz endpoint (HTTP 200)
-HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
-  CMD python -c "import httpx; httpx.get('http://localhost:8000/healthz', timeout=3.0)" || exit 1
-
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Default command (overridden in compose)
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
