@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "code-review-graph",
+            "tool": "build_or_update_graph_tool",
+            "input": {
+              "full_rebuild": false
+            },
+            "if": "Bash(git commit*)",
+            "statusMessage": "Updating code-review graph...",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
