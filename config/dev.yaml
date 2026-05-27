@@ -1,0 +1,36 @@
+# Dev defaults. Override per-deploy via env vars (see .env.example).
+
+env: dev
+
+pipeline:
+  target_fps: 15
+  confidence_plate: 0.75
+  confidence_char: 0.60
+  track_vote_window: 8
+  quality_min_laplacian_var: 80.0
+  quality_min_char_height_px: 12
+
+detector:
+  weights: models/plate_yolov8s.pt
+  device: auto                # auto | cpu | cuda:0 | mps
+  imgsz: 640
+  iou: 0.5
+  conf: 0.25
+
+ocr:
+  backend: paddle             # paddle | crnn | fusion
+  paddle_lang: en
+  fuse_strategy: char_conf_max
+
+regions:
+  enabled: [in, eu, us]
+  default: in
+
+watchlist:
+  dedup_window_sec: 300
+
+retention_days:
+  default: 90
+  eu: 30
+  us: 90
+  in: 90

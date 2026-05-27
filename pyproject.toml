@@ -1,0 +1,159 @@
+[project]
+name = "anpr"
+version = "0.1.0"
+description = "Industrial-grade Automatic Number Plate Recognition pipeline"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "Proprietary" }
+authors = [{ name = "Sai Tarrun Pitta", email = "saitarrunpitta@gmail.com" }]
+
+dependencies = [
+    # API + service
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "python-multipart>=0.0.17",
+    "websockets>=13.1",
+    # Persistence
+    "sqlalchemy>=2.0.36",
+    "alembic>=1.14",
+    "psycopg[binary]>=3.2",
+    "redis>=5.2",
+    "boto3>=1.35",
+    # CV + detection
+    "opencv-python>=4.10",
+    "numpy>=1.26,<2.2",
+    "Pillow>=11.0",
+    "ultralytics>=8.3",
+    "supervision>=0.25",
+    "albumentations>=1.4",
+    "onnxruntime>=1.20",
+    # OCR
+    "paddleocr>=2.9",
+    "paddlepaddle>=2.6",
+    # Workers + queue
+    "celery[redis]>=5.4",
+    # Observability
+    "structlog>=24.4",
+    "prometheus-client>=0.21",
+    "opentelemetry-api>=1.28",
+    "opentelemetry-sdk>=1.28",
+    "opentelemetry-instrumentation-fastapi>=0.49b2",
+    # Security
+    "cryptography>=43.0",
+    "passlib[bcrypt]>=1.7.4",
+    "python-jose[cryptography]>=3.3",
+    # Tracking + ML lifecycle
+    "mlflow>=2.18",
+    "dvc[s3]>=3.55",
+    # Utils
+    "typer>=0.13",
+    "rich>=13.9",
+    "httpx>=0.28",
+    "tenacity>=9.0",
+    "pyyaml>=6.0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "pytest-xdist>=3.6",
+    "httpx>=0.28",
+    "locust>=2.32",
+    "pre-commit>=4.0",
+    "types-pyyaml>=6.0.12",
+    "types-passlib>=1.7.7",
+    "types-python-jose>=3.3",
+]
+
+[project.scripts]
+anpr-demo = "scripts.demo:main"
+anpr-api = "api.main:run"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["anpr_core", "api", "ingest", "workers", "db"]
+
+# ---------- Ruff ----------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["ui", "data", "models", "migrations/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",     # pycodestyle / pyflakes
+    "I",                # isort
+    "B",                # bugbear
+    "UP",               # pyupgrade
+    "SIM",              # simplify
+    "C4",               # comprehensions
+    "ASYNC",            # async correctness
+    "S",                # bandit (security)
+    "RET",              # return statements
+    "TID",              # tidy imports
+    "PL",               # pylint subset
+    "RUF",
+]
+ignore = [
+    "S101",   # assert in tests
+    "PLR0913", # too many args
+    "PLR2004", # magic numbers
+    "E501",   # line length handled by formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S", "PLR"]
+"scripts/**/*.py" = ["S"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ---------- Mypy ----------
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+exclude = ["build/", "dist/", "ui/", "data/", "models/", "migrations/"]
+
+[[tool.mypy.overrides]]
+module = [
+    "cv2.*", "ultralytics.*", "paddleocr.*", "supervision.*",
+    "albumentations.*", "mlflow.*", "dvc.*", "celery.*",
+]
+ignore_missing_imports = true
+
+# ---------- Pytest ----------
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra --strict-markers --strict-config"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "slow: tests that take > 1s",
+    "gpu: requires CUDA",
+    "integration: requires docker-compose stack",
+    "e2e: end-to-end against running API",
+]
+
+[tool.coverage.run]
+source = ["anpr_core", "api", "ingest", "workers", "db"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

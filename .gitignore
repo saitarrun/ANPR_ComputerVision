@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# uv
+.uv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Models + data (use DVC for these)
+*.pt
+*.onnx
+*.engine
+*.pth
+*.h5
+*.weights
+models/
+data/raw/
+data/processed/
+!data/golden/.gitkeep
+
+# Logs + runs
+logs/
+*.log
+runs/
+wandb/
+mlruns/
+
+# Node (UI)
+ui/node_modules/
+ui/dist/
+ui/.vite/
+ui/coverage/
+
+# Docker / OrbStack
+.docker/
+
+# Crops + frames generated locally
+crops/
+frames/
+out/
