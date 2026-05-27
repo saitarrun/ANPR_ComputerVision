@@ -1,0 +1,36 @@
+# Multi-stage build: builder + runtime
+# Stage 1: Builder
+FROM python:3.11-slim as builder
+
+WORKDIR /build
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml .
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install --user --no-cache-dir -e .
+
+# Stage 2: Runtime (minimal, production-ready)
+FROM python:3.11-slim
+
+WORKDIR /app
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Install minimal runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed packages from builder
+COPY --from=builder /root/.local /home/appuser/.local
+ENV PATH=/home/appuser/.local/bin:$PATH
+
+# Copy source code
+COPY . .
+RUN chown -R appuser:appuser /app
+
+USER appuser
+
+CMD ["celery", "-A", "workers.tasks", "worker", "--loglevel=info", "--concurrency=2"]

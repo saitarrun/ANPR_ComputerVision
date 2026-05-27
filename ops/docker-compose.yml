@@ -1,6 +1,9 @@
 # OrbStack-compatible compose. Run via OrbStack engine:
 #   docker context use orbstack
 #   docker compose -f ops/docker-compose.yml up -d
+#
+# Day 1 M6 (2026-05-27): Added api (FastAPI) and worker (Celery) services.
+# All 7 services (postgres, redis, minio, prometheus, grafana, api, worker) reach healthy state.
 name: anpr
 
 services:
@@ -100,6 +103,136 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile.api
+    container_name: anpr-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # App
+      ANPR_ENV: ${ANPR_ENV:-dev}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      API_WORKERS: ${API_WORKERS:-2}
+
+      # Auth + Security
+      SECRET_KEY: ${SECRET_KEY:-change-me-dev-only-secret-key-32plus-bytes}
+      FERNET_KEY: ${FERNET_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:-change-me-dev-only-jwt-secret-32plus-bytes}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
+
+      # Database
+      DATABASE_URL: postgresql+psycopg://anpr:${POSTGRES_PASSWORD:-anpr_dev_pw}@postgres:5432/${POSTGRES_DB:-anpr}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-anpr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-anpr_dev_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-anpr}
+
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+
+      # MinIO / S3
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-anpr_admin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-anpr_dev_pw}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET_CROPS: ${S3_BUCKET_CROPS:-anpr-crops}
+      S3_BUCKET_FRAMES: ${S3_BUCKET_FRAMES:-anpr-frames}
+      S3_BUCKET_AUDIT: ${S3_BUCKET_AUDIT:-anpr-audit}
+
+      # Observability
+      PROMETHEUS_MULTIPROC_DIR: /tmp/prom-multi
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+
+      # Models
+      DETECTOR_WEIGHTS: ${DETECTOR_WEIGHTS:-models/plate_yolov8s.pt}
+      OCR_BACKEND: ${OCR_BACKEND:-paddle}
+      PADDLE_OCR_LANG: ${PADDLE_OCR_LANG:-en}
+
+      # Pipeline
+      TARGET_FPS: ${TARGET_FPS:-15}
+      CONFIDENCE_PLATE: ${CONFIDENCE_PLATE:-0.75}
+      CONFIDENCE_CHAR: ${CONFIDENCE_CHAR:-0.60}
+      TRACK_VOTE_WINDOW: ${TRACK_VOTE_WINDOW:-8}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    volumes:
+      - ..:/app
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile.worker
+    container_name: anpr-worker
+    restart: unless-stopped
+    environment:
+      # App
+      ANPR_ENV: ${ANPR_ENV:-dev}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # Database
+      DATABASE_URL: postgresql+psycopg://anpr:${POSTGRES_PASSWORD:-anpr_dev_pw}@postgres:5432/${POSTGRES_DB:-anpr}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-anpr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-anpr_dev_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-anpr}
+
+      # Redis + Celery
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+
+      # MinIO / S3
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-anpr_admin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-anpr_dev_pw}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET_CROPS: ${S3_BUCKET_CROPS:-anpr-crops}
+      S3_BUCKET_FRAMES: ${S3_BUCKET_FRAMES:-anpr-frames}
+      S3_BUCKET_AUDIT: ${S3_BUCKET_AUDIT:-anpr-audit}
+
+      # Security
+      FERNET_KEY: ${FERNET_KEY:-}
+
+      # Models
+      DETECTOR_WEIGHTS: ${DETECTOR_WEIGHTS:-models/plate_yolov8s.pt}
+      OCR_BACKEND: ${OCR_BACKEND:-paddle}
+      PADDLE_OCR_LANG: ${PADDLE_OCR_LANG:-en}
+
+      # Pipeline
+      TARGET_FPS: ${TARGET_FPS:-15}
+      CONFIDENCE_PLATE: ${CONFIDENCE_PLATE:-0.75}
+      CONFIDENCE_CHAR: ${CONFIDENCE_CHAR:-0.60}
+      TRACK_VOTE_WINDOW: ${TRACK_VOTE_WINDOW:-8}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    volumes:
+      - ..:/app
 
 volumes:
   postgres_data:
