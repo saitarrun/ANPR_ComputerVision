@@ -1,0 +1,2 @@
+- [Decision Log M6](decision_log_m6.md) — DL-001 through DL-005: canonical DB schema, WS format, Compose, Celery, test bar
+- [Agent Constraints](agent_constraints.md) — per-agent known constraints and lead times observed in this project

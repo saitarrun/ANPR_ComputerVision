@@ -1,82 +1,88 @@
-"""Pydantic settings for all environment configuration."""
+"""Application configuration from environment variables."""
+import os
+from enum import Enum
+from typing import Literal
 
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator, ConfigDict
+
+
+class UserRole(str, Enum):
+    """User roles for RBAC."""
+
+    VIEWER = "viewer"
+    OPERATOR = "operator"
+    ADMIN = "admin"
+
+
+class Environment(str, Enum):
+    """Deployment environment."""
+
+    DEV = "dev"
+    STAGING = "staging"
+    PRODUCTION = "production"
 
 
 class Settings(BaseSettings):
     """Application settings from environment variables."""
 
-    # App
-    anpr_env: str = "dev"
-    log_level: str = "INFO"
-    api_host: str = "0.0.0.0"
-    api_port: int = 8000
-    api_workers: int = 2
+    model_config = ConfigDict(extra="ignore", env_file=".env", case_sensitive=False)
 
-    # Auth + Security
-    # JWT secret (min 32 chars): Generate with secrets.token_urlsafe(32)
-    jwt_secret: str = Field(default="change-me-dev-only-jwt-secret-32plus-bytes", env="JWT_SECRET")
-    jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 60
+    # ---- App ----
+    app_env: Environment = Field(default=Environment.DEV, validation_alias="ANPR_ENV")
+    api_host: str = Field(default="0.0.0.0", validation_alias="API_HOST")
+    api_port: int = Field(default=8000, validation_alias="API_PORT")
+    api_title: str = Field(default="ANPR Backend API", validation_alias="API_TITLE")
+    api_version: str = Field(default="0.1.0", validation_alias="API_VERSION")
 
-    # Fernet key (44 chars base64): Generate with Fernet.generate_key().decode()
-    fernet_key: str = Field(default="", env="FERNET_KEY")
+    # ---- Auth ----
+    jwt_secret: str = Field(..., validation_alias="JWT_SECRET", min_length=32)
+    jwt_algorithm: Literal["HS256", "RS256"] = Field(default="HS256", validation_alias="JWT_ALGORITHM")
+    jwt_expire_minutes: int = Field(default=60, validation_alias="JWT_EXPIRE_MINUTES")
+    refresh_token_expire_days: int = Field(default=7, validation_alias="JWT_REFRESH_EXPIRY_DAYS")
 
-    # Password hashing: bcrypt with cost 12 (see security.py)
-    # No env vars needed; configured in pwd_context
+    # ---- Encryption ----
+    fernet_key: str = Field(default="", validation_alias="FERNET_KEY")
 
-    # Database
-    database_url: str = "postgresql+asyncpg://anpr:anpr_dev_pw@localhost:5432/anpr"
-    postgres_host: str = "localhost"
-    postgres_port: int = 5432
-    postgres_user: str = "anpr"
-    postgres_password: str = "anpr_dev_pw"
-    postgres_db: str = "anpr"
+    # ---- Database ----
+    database_url: str = Field(..., validation_alias="DATABASE_URL")
+    db_pool_size: int = Field(default=20)
+    db_max_overflow: int = Field(default=40)
+    db_pool_timeout: int = Field(default=30)
 
-    # Redis (for rate limiting, token blacklist, session cache)
-    redis_url: str = "redis://localhost:6379/0"
+    # ---- Redis ----
+    redis_url: str = Field(..., validation_alias="REDIS_URL")
 
-    # MinIO / S3
-    s3_endpoint_url: str = "http://localhost:9000"
-    s3_access_key: str = "anpr_admin"
-    s3_secret_key: str = "anpr_dev_pw"
-    s3_region: str = "us-east-1"
-    s3_bucket_crops: str = "anpr-crops"
-    s3_bucket_frames: str = "anpr-frames"
-    s3_bucket_audit: str = "anpr-audit"
+    # ---- S3 / MinIO ----
+    s3_endpoint_url: str = Field(..., validation_alias="S3_ENDPOINT_URL")
+    s3_access_key: str = Field(..., validation_alias="S3_ACCESS_KEY")
+    s3_secret_key: str = Field(..., validation_alias="S3_SECRET_KEY")
+    s3_region: str = Field(default="us-east-1", validation_alias="S3_REGION")
+    s3_bucket_crops: str = Field(default="anpr-crops", validation_alias="S3_BUCKET_CROPS")
+    s3_bucket_frames: str = Field(default="anpr-frames", validation_alias="S3_BUCKET_FRAMES")
+    s3_bucket_audit: str = Field(default="anpr-audit", validation_alias="S3_BUCKET_AUDIT")
 
-    # Observability
-    prometheus_multiproc_dir: str = "/tmp/prom-multi"
-    otel_exporter_otlp_endpoint: str = ""
+    # ---- Celery ----
+    celery_broker_url: str | None = Field(default=None, validation_alias="CELERY_BROKER_URL")
+    celery_result_backend: str | None = Field(default=None, validation_alias="CELERY_BACKEND_URL")
 
-    # Models
-    detector_weights: str = "models/plate_yolov8s.pt"
-    ocr_backend: str = "paddle"
-    paddle_ocr_lang: str = "en"
-    mlflow_tracking_uri: str = ""
+    # ---- Pipeline Config ----
+    target_fps: int = Field(default=15, validation_alias="TARGET_FPS")
+    confidence_plate: float = Field(default=0.75, validation_alias="CONFIDENCE_PLATE")
+    confidence_char: float = Field(default=0.60, validation_alias="CONFIDENCE_CHAR")
+    track_vote_window: int = Field(default=8, validation_alias="TRACK_VOTE_WINDOW")
 
-    # Pipeline
-    target_fps: int = 15
-    confidence_plate: float = 0.75
-    confidence_char: float = 0.60
-    track_vote_window: int = 8
-
-    # Ingest
-    webcam_index: int = 0
-    iphone_source: str = "continuity"
-    iphone_rtsp_url: str = "rtsp://192.168.0.50:8080/video"
-    rtsp_reconnect_backoff_sec: int = 2
-    rtsp_reconnect_max_sec: int = 60
-
-    # Alerts
-    alert_webhook_url: str = ""
-    alert_dedup_window_sec: int = 300
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    @field_validator("jwt_secret")
+    @classmethod
+    def validate_jwt_secret(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError("JWT_SECRET must be at least 32 characters")
+        return v
 
 
-# Global settings instance
-settings = Settings()
+def get_settings() -> Settings:
+    """Get settings singleton."""
+    return Settings()  # type: ignore
+
+
+settings = get_settings()
