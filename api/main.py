@@ -11,7 +11,7 @@ import uvicorn
 from api.config import settings
 from api.exceptions import ANPRException
 from db.engine import init_db, close_db
-from api.routers import auth, ingest
+from api.routers import auth, ingest, websocket
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +104,7 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(auth.router)
     app.include_router(ingest.router)
+    app.include_router(websocket.router)
 
     return app
 
