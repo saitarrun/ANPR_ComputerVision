@@ -3,7 +3,7 @@ name = "anpr"
 version = "0.1.0"
 description = "Industrial-grade Automatic Number Plate Recognition pipeline"
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11"
 license = { text = "Proprietary" }
 authors = [{ name = "Sai Tarrun Pitta", email = "saitarrunpitta@gmail.com" }]
 

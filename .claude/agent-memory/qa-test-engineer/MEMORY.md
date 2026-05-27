@@ -1,0 +1,1 @@
+- [M6 Test Suite](m6_test_suite.md) — 221 tests, testcontainers infra, fixture patterns, gate criteria

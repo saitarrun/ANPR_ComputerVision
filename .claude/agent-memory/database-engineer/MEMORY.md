@@ -1,0 +1,1 @@
+- [ANPR Schema Design](anpr_schema_design.md) — 9-table PostgreSQL schema with FK constraints, indexes, append-only audit logging
