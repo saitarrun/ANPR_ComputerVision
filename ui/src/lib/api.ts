@@ -214,6 +214,41 @@ export const auditLogAPI = {
     }),
 };
 
+export interface UserSettings {
+  id: string;
+  email: string;
+  retention_days: number;
+  alert_channels: string[];
+  export_redaction_enabled: boolean;
+  created_at: string;
+  last_login?: string;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  username: string;
+  role: 'viewer' | 'operator' | 'admin';
+  created_at: string;
+  last_login?: string;
+  is_active: boolean;
+}
+
+export const settingsAPI = {
+  changePassword: (data: { current_password: string; new_password: string; confirm_password: string }) =>
+    apiClient.post('/v1/auth/change-password', data),
+  getSettings: () =>
+    apiClient.get<UserSettings>('/v1/settings'),
+  updateSettings: (data: { retention_days?: number; alert_channels?: string[]; export_redaction_enabled?: boolean }) =>
+    apiClient.put<UserSettings>('/v1/settings', data),
+  listUsers: () =>
+    apiClient.get<AdminUser[]>('/v1/users'),
+  updateUser: (userId: string, data: { role?: string; is_active?: boolean }) =>
+    apiClient.put<AdminUser>(`/v1/users/${userId}`, data),
+  healthStatus: () =>
+    apiClient.get<{ status: string; components: Record<string, string> }>('/v1/health/status'),
+};
+
 // WebSocket URL helper
 export const getWSUrl = (streamId: string, token: string): string => {
   const wsBase = API_BASE_URL.replace(/^http/, 'ws');

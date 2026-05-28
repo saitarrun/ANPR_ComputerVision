@@ -15,6 +15,7 @@ export const AppLayout = () => {
     { label: 'Watchlist', href: '/watchlist', icon: '🎯' },
     { label: 'Review', href: '/review', icon: '👁️' },
     { label: 'Audit', href: '/audit', icon: '📋' },
+    { label: 'Settings', href: '/settings', icon: '⚙️' },
   ];
 
   const isActive = (href: string) => location.pathname === href;
@@ -85,6 +86,7 @@ export const AppLayout = () => {
             {location.pathname === '/watchlist' && 'Watchlist'}
             {location.pathname === '/review' && 'Review Queue'}
             {location.pathname === '/audit' && 'Audit Log'}
+            {location.pathname === '/settings' && 'Settings'}
           </h1>
         </div>
 

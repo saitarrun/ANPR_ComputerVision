@@ -11,7 +11,7 @@ import uvicorn
 from api.config import settings
 from api.exceptions import ANPRException
 from db.engine import init_db, close_db
-from api.routers import auth, ingest, websocket, data, debug, watchlist, review, audit
+from api.routers import auth, ingest, websocket, data, debug, watchlist, review, audit, settings as settings_router
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +109,7 @@ def create_app() -> FastAPI:
     app.include_router(watchlist.router)
     app.include_router(review.router)
     app.include_router(audit.router)
+    app.include_router(settings_router.router)
     if settings.app_env.value != "production":
         app.include_router(debug.router)
 
