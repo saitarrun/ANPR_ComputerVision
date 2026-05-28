@@ -32,7 +32,7 @@ async def get_current_user(
 
 async def get_current_user_id(token: dict = Depends(get_current_user)) -> str:
     """Extract user ID from token."""
-    user_id = token.get("sub")
+    user_id = token.get("user_id")
     if not user_id:
         raise AuthenticationError("Invalid token: missing user ID")
     return user_id

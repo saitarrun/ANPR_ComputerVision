@@ -113,4 +113,5 @@ async def get_current_user_info(
         "email": user.email,
         "username": user.username,
         "role": user.role.value,
+        "created_at": user.created_at,
     }

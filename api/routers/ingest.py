@@ -26,7 +26,7 @@ class IngestResponse(BaseModel):
     status: str = "queued"
 
 
-@router.post("/frame", response_model=IngestResponse)
+@router.post("/frame", response_model=IngestResponse, status_code=status.HTTP_202_ACCEPTED)
 async def ingest_frame(request: IngestRequest, user_id: str = Depends(get_current_user)) -> IngestResponse:
     """Enqueue frame for processing.
 
@@ -35,7 +35,7 @@ async def ingest_frame(request: IngestRequest, user_id: str = Depends(get_curren
         user_id: Authenticated user (from JWT)
 
     Returns:
-        Task ID for polling status
+        Task ID for polling status (HTTP 202 Accepted)
     """
     try:
         # Validate base64
