@@ -1,1 +1,3 @@
 - [M2 Baseline Execution](m2_baseline_execution.md) — YOLOv8s baseline trained, pipeline validated, mAP=0.586 (synthetic), p95=231ms (CPU)
+- [M3–M5 Orchestrator Complete](m3_m5_orchestrator_complete.md) — Full pipeline integrated: detect→normalize→quality→OCR→track→vote→classify→gate. Worker task live. Smoke tests pass.
+- [M2 Kaggle Training](m2_kaggle_training.md) — Kaggle plate dataset (436 images); batch training pipeline ready; 20-epoch training in progress

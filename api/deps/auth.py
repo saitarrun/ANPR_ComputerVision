@@ -1,5 +1,5 @@
 """Authentication dependencies."""
-from fastapi import Depends, Header
+from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from api.exceptions import AuthenticationError, AuthorizationError
@@ -21,20 +21,32 @@ async def get_current_user(
         Decoded token payload
 
     Raises:
-        AuthenticationError: If token invalid
+        HTTPException: If token invalid or missing
     """
     if not authorization or not authorization.startswith("Bearer "):
-        raise AuthenticationError("Missing or invalid Authorization header")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header",
+        )
 
     token = authorization.split(" ")[1]
-    return verify_token(token)
+    try:
+        return verify_token(token)
+    except AuthenticationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e.message),
+        )
 
 
 async def get_current_user_id(token: dict = Depends(get_current_user)) -> str:
     """Extract user ID from token."""
     user_id = token.get("user_id")
     if not user_id:
-        raise AuthenticationError("Invalid token: missing user ID")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token: missing user ID",
+        )
     return user_id
 
 
@@ -42,7 +54,10 @@ async def get_current_user_role(token: dict = Depends(get_current_user)) -> User
     """Extract user role from token."""
     role_str = token.get("role")
     if not role_str:
-        raise AuthenticationError("Invalid token: missing role")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token: missing role",
+        )
     return UserRole(role_str)
 
 
@@ -57,8 +72,9 @@ async def require_role(*roles: UserRole):
     """
     async def check_role(current_role: UserRole = Depends(get_current_user_role)) -> UserRole:
         if current_role not in roles:
-            raise AuthorizationError(
-                f"This action requires one of: {', '.join([r.value for r in roles])}"
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"This action requires one of: {', '.join([r.value for r in roles])}",
             )
         return current_role
     return check_role

@@ -1,0 +1,1 @@
+- [Quality Audit 2026-05-28](quality_audit_2026_05_28.md) — Comprehensive linting fixes; 30 ruff violations resolved, strict types enforced

@@ -157,6 +157,7 @@ class TestAuditLogCreation:
         )
         if response.status_code == 201:
             # Audit log should have entry for this action
+            pass
 
     @pytest.mark.integration
     def test_audit_log_entry_on_review_resolution(self, operator_client):

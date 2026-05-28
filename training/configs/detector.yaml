@@ -17,7 +17,7 @@ dataset:
 detector:
   batch_size: 16
   device: cpu
-  epochs: 10
+  epochs: 100
   export_formats:
   - pt
   - onnx
@@ -28,7 +28,7 @@ detector:
   model: yolov8s.pt
   momentum: 0.937
   optimizer: SGD
-  patience: 5
+  patience: 15
   weight_decay: 0.0005
 logging:
   experiment_name: anpr-detector
