@@ -106,6 +106,22 @@ export interface PlateResponse {
   updated_at: string;
 }
 
+export interface WatchlistResponse {
+  id: string;
+  plate_pattern: string;
+  region_id: string;
+  reason?: string;
+  priority: number;
+  alert_enabled: boolean;
+  alert_channel: 'webhook' | 'email' | 'sms';
+  dedup_window: number;
+  last_hit?: string;
+  hit_count: number;
+  created_by_user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // API endpoints
 export const authAPI = {
   login: (data: LoginRequest) =>
@@ -142,6 +158,19 @@ export const detectionAPI = {
     apiClient.get<DetectionResponse[]>('/v1/detections', { params: filters }),
   get: (id: string) =>
     apiClient.get<DetectionResponse>(`/v1/detections/${id}`),
+};
+
+export const watchlistAPI = {
+  create: (data: { plate_pattern: string; region_id: string; reason?: string; priority?: number; alert_enabled?: boolean; alert_channel?: string }) =>
+    apiClient.post<WatchlistResponse>('/v1/watchlist', data),
+  list: (filters?: { region_id?: string; enabled_only?: boolean }) =>
+    apiClient.get<WatchlistResponse[]>('/v1/watchlist', { params: filters }),
+  get: (id: string) =>
+    apiClient.get<WatchlistResponse>(`/v1/watchlist/${id}`),
+  update: (id: string, data: { plate_pattern: string; region_id: string; reason?: string; priority?: number; alert_enabled?: boolean; alert_channel?: string }) =>
+    apiClient.put<WatchlistResponse>(`/v1/watchlist/${id}`, data),
+  delete: (id: string) =>
+    apiClient.delete(`/v1/watchlist/${id}`),
 };
 
 // WebSocket URL helper

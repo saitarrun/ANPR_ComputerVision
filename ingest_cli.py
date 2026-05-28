@@ -13,7 +13,7 @@ from ingest.base import FrameSource
 from ingest.webcam import WebcamSource
 from ingest.rtsp import RTSPSource
 from ingest.file import FileSource
-from ingest.iphone import IPhoneSource
+from ingest.iphone import iPhoneSource
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -157,7 +157,7 @@ def main():
             sys.exit(1)
         source = FileSource(args.url)
     elif args.source == "iphone":
-        source = IPhoneSource()
+        source = iPhoneSource()
 
     if not source:
         print("Failed to initialize source")

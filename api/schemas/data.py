@@ -77,3 +77,35 @@ class PlateOut(BaseModel):
 
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}
+
+
+class WatchlistIn(BaseModel):
+    """Watchlist create/update schema."""
+
+    plate_pattern: str
+    region_id: str
+    reason: Optional[str] = None
+    priority: int = 0
+    alert_enabled: bool = True
+    alert_channel: str = "webhook"
+
+
+class WatchlistOut(BaseModel):
+    """Watchlist response schema."""
+
+    id: str
+    plate_pattern: str
+    region_id: str
+    reason: Optional[str] = None
+    priority: int
+    alert_enabled: bool
+    alert_channel: str
+    dedup_window: int
+    last_hit: Optional[datetime] = None
+    hit_count: int
+    created_by_user_id: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        json_encoders = {datetime: lambda v: v.isoformat()}

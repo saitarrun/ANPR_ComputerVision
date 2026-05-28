@@ -54,3 +54,23 @@ bench: ## Accuracy + latency benchmark
 clean: ## Remove caches
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
 	rm -rf .pytest_cache .mypy_cache .ruff_cache
+
+m2-setup: ## M2: Initialize detector fine-tuning (golden sets + configs)
+	$(PYTHON) benchmarks/golden_sets.py
+	@echo "✓ Golden sets initialized"
+	@echo "Next: python training/data/prepare_splits.py --cache ~/.cache/anpr-datasets"
+
+m2-baseline: ## M2: Train baseline detector (10 epochs, CCPD only)
+	$(PYTHON) training/scripts/train_detector_m2.py --phase baseline
+
+m2-full: ## M2: Full detector fine-tuning (100 epochs, CCPD + synthetic)
+	$(PYTHON) training/scripts/train_detector_m2.py --phase full
+
+m2-train: ## M2: Complete training (baseline + full)
+	$(PYTHON) training/scripts/train_detector_m2.py --phase all
+
+m2-eval: ## M2: Evaluate detector on golden sets
+	$(PYTHON) benchmarks/eval_m2.py --set golden_in_small --quick
+
+m2-mlflow: ## M2: View MLflow UI (training metrics)
+	mlflow ui
