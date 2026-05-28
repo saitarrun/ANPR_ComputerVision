@@ -131,13 +131,18 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """Create and configure FastAPI application."""
+    # Disable OpenAPI docs in production
+    docs_url = None if settings.app_env.value == "production" else "/docs"
+    redoc_url = None if settings.app_env.value == "production" else "/redoc"
+    openapi_url = None if settings.app_env.value == "production" else "/openapi.json"
+
     app = FastAPI(
         title=settings.api_title,
         version=settings.api_version,
         lifespan=lifespan,
-        docs_url="/docs",
-        redoc_url="/redoc",
-        openapi_url="/openapi.json",
+        docs_url=docs_url,
+        redoc_url=redoc_url,
+        openapi_url=openapi_url,
     )
 
     # State: rate limiter

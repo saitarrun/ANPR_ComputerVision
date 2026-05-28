@@ -107,8 +107,23 @@ async def list_cameras_for_region(
 
     Returns:
         List of cameras in region
+
+    Raises:
+        HTTPException: 422 if region_id is invalid UUID, 404 if region not found
     """
-    stmt = select(Camera).where(Camera.region_id == region_id).order_by(Camera.name)
+    region_uuid = validate_uuid(region_id, "region ID")
+
+    stmt = select(Region).where(Region.id == region_uuid)
+    result = await db.execute(stmt)
+    region = result.scalars().first()
+
+    if not region:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Region not found",
+        )
+
+    stmt = select(Camera).where(Camera.region_id == region_uuid).order_by(Camera.name)
     result = await db.execute(stmt)
     cameras = result.scalars().all()
 
@@ -146,11 +161,15 @@ async def list_detections(
 
     Returns:
         List of recent detections
+
+    Raises:
+        HTTPException: 422 if camera_id is invalid UUID
     """
     conditions = []
 
     if camera_id:
-        conditions.append(Detection.camera_id == camera_id)
+        camera_uuid = validate_uuid(camera_id, "camera ID")
+        conditions.append(Detection.camera_id == camera_uuid)
 
     stmt = select(Detection)
 
@@ -198,11 +217,15 @@ async def list_plates(
 
     Returns:
         List of detected plates
+
+    Raises:
+        HTTPException: 422 if region_id is invalid UUID
     """
     conditions = []
 
     if region_id:
-        conditions.append(Plate.region_id == region_id)
+        region_uuid = validate_uuid(region_id, "region ID")
+        conditions.append(Plate.region_id == region_uuid)
 
     stmt = select(Plate)
 
