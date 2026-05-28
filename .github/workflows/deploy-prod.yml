@@ -1,0 +1,287 @@
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'  # Semantic versioning: v1.2.3
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (tag)'
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/api
+  DEPLOY_TIMEOUT: 900  # 15 minutes
+
+jobs:
+  validate-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.ref }}"
+            VERSION=${VERSION#refs/tags/}
+          fi
+
+          # Validate semantic versioning
+          if ! [[ $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version format: $VERSION"
+            exit 1
+          fi
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Deploying version: $VERSION"
+
+      - name: Verify tag exists on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor ${{ steps.version.outputs.version }} origin/main; then
+            echo "Tag ${{ steps.version.outputs.version }} is not an ancestor of main"
+            exit 1
+          fi
+          echo "Tag verified on main branch"
+
+  deploy-prod:
+    needs: validate-release
+    runs-on: ubuntu-latest
+    environment: production  # Require approval (configure in GitHub settings)
+    permissions:
+      contents: read
+      packages: read
+      deployments: write
+    outputs:
+      deployment-id: ${{ steps.deploy.outputs.deployment-id }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-release.outputs.version }}
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create production deployment
+        id: deploy
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: '${{ needs.validate-release.outputs.version }}',
+              environment: 'production',
+              auto_merge: false,
+              required_contexts: [],
+              description: 'Production deployment of ${{ needs.validate-release.outputs.version }}'
+            });
+            core.setOutput('deployment-id', deployment.data.id);
+
+      - name: Pre-deployment checks
+        run: |
+          echo "Running pre-deployment health checks..."
+
+          PROD_HOST="${{ secrets.PROD_DEPLOY_HOST }}"
+          PROD_USER="${{ secrets.PROD_DEPLOY_USER }}"
+          PROD_KEY="${{ secrets.PROD_DEPLOY_KEY }}"
+
+          # Setup SSH
+          mkdir -p ~/.ssh
+          echo "$PROD_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$PROD_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # Check current health
+          ssh -i ~/.ssh/deploy_key "$PROD_USER@$PROD_HOST" bash << 'EOF'
+            set -e
+            echo "Current production status:"
+            docker-compose -f /opt/anpr/prod/docker-compose.yml ps
+
+            echo "Checking API health before deployment..."
+            curl -f http://localhost:8000/healthz || exit 1
+            echo "Pre-deployment check passed"
+          EOF
+
+      # Blue-green deployment strategy
+      - name: Deploy with blue-green strategy
+        id: deploy-cluster
+        timeout-minutes: 15
+        run: |
+          set -e
+
+          VERSION="${{ needs.validate-release.outputs.version }}"
+          PROD_HOST="${{ secrets.PROD_DEPLOY_HOST }}"
+          PROD_USER="${{ secrets.PROD_DEPLOY_USER }}"
+          PROD_KEY="${{ secrets.PROD_DEPLOY_KEY }}"
+          DEPLOY_PATH="/opt/anpr/prod"
+
+          mkdir -p ~/.ssh
+          echo "$PROD_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$PROD_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # Execute blue-green deployment
+          ssh -i ~/.ssh/deploy_key "$PROD_USER@$PROD_HOST" bash << 'EOF'
+            set -e
+            cd $DEPLOY_PATH
+
+            echo "=== BLUE-GREEN DEPLOYMENT ==="
+            CURRENT=$(docker-compose -f docker-compose.prod.yml ps | grep "Up" | wc -l || echo 0)
+            echo "Current running containers: $CURRENT"
+
+            # Deploy to green environment
+            echo "Starting green (new) environment..."
+            export IMAGE_TAG="${{ needs.validate-release.outputs.version }}"
+            docker-compose -f docker-compose.prod.green.yml pull api worker
+            docker-compose -f docker-compose.prod.green.yml up -d api worker
+
+            # Health check on green
+            echo "Waiting for green environment to be healthy..."
+            MAX_ATTEMPTS=30
+            for i in $(seq 1 $MAX_ATTEMPTS); do
+              if docker-compose -f docker-compose.prod.green.yml exec -T api curl -f http://localhost:8001/healthz > /dev/null 2>&1; then
+                echo "Green environment is healthy"
+                break
+              fi
+              if [ $i -eq $MAX_ATTEMPTS ]; then
+                echo "Green environment failed to start"
+                docker-compose -f docker-compose.prod.green.yml logs api
+                exit 1
+              fi
+              sleep 2
+            done
+
+            # Route traffic from blue to green (via load balancer or reverse proxy)
+            echo "Switching traffic to green..."
+            ./scripts/switch-traffic-to-green.sh || exit 1
+
+            # Monitor for 2 minutes
+            echo "Monitoring green for 2 minutes..."
+            sleep 120
+
+            # Check metrics (example: check error rate)
+            ERROR_RATE=$(curl -s http://prometheus:9090/api/v1/query?query='rate(http_requests_total{status=~"5.."}%5B1m%5D)' | jq '.data.result[0].value[1] // "0"' | tr -d '"')
+            if (( $(echo "$ERROR_RATE > 0.05" | bc -l) )); then
+              echo "High error rate detected: $ERROR_RATE. Rolling back..."
+              ./scripts/switch-traffic-to-blue.sh || true
+              exit 1
+            fi
+
+            echo "Green deployment successful, keeping traffic there"
+            echo "Shutting down blue environment..."
+            docker-compose -f docker-compose.prod.yml down
+          EOF
+
+          echo "prod-url=https://api.anpr.com" >> $GITHUB_OUTPUT
+
+      # Post-deployment verification
+      - name: Verify production deployment
+        timeout-minutes: 5
+        run: |
+          echo "Running post-deployment verification..."
+          PROD_URL="https://api.anpr.com"
+
+          for i in {1..10}; do
+            if curl -f "$PROD_URL/healthz"; then
+              echo "Production API is healthy"
+              break
+            fi
+            if [ $i -eq 10 ]; then
+              echo "Production health check failed"
+              exit 1
+            fi
+            sleep 5
+          done
+
+          echo "Verifying endpoints..."
+          curl -f "$PROD_URL/api/v1/status" || exit 1
+          echo "Production deployment verified"
+
+      - name: Mark deployment successful
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deploy.outputs.deployment-id }},
+              state: 'success',
+              environment_url: '${{ steps.deploy-cluster.outputs.prod-url }}',
+              description: 'Production deployment successful'
+            });
+
+      - name: Mark deployment failed
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deploy.outputs.deployment-id }},
+              state: 'failure',
+              description: 'Production deployment failed'
+            });
+
+            // Trigger automatic rollback
+            console.log('Deployment failed. Consider manual rollback via: gh workflow run rollback-prod.yml');
+
+      - name: Notify Slack on success
+        if: success()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_DEPLOY }}
+          payload: |
+            {
+              "text": "Production deployment successful",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Production Deployment Successful* ✅\n*Version:* ${{ needs.validate-release.outputs.version }}\n*URL:* https://api.anpr.com\n*Action:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }
+        continue-on-error: true
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_DEPLOY }}
+          payload: |
+            {
+              "text": "Production deployment FAILED",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Production Deployment FAILED* ❌\n*Version:* ${{ needs.validate-release.outputs.version }}\n*Action:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n*Rollback:* Run `gh workflow run rollback-prod.yml --ref main`"
+                  }
+                }
+              ]
+            }
+        continue-on-error: true

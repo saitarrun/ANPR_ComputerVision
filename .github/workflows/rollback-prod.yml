@@ -1,0 +1,215 @@
+name: Rollback Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: 'Version to rollback to (tag, e.g., v1.2.3 or "previous")'
+        required: true
+        type: string
+      reason:
+        description: 'Reason for rollback'
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/api
+
+jobs:
+  determine-version:
+    runs-on: ubuntu-latest
+    outputs:
+      target: ${{ steps.target.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine target version
+        id: target
+        run: |
+          TARGET="${{ github.event.inputs.target_version }}"
+
+          if [ "$TARGET" == "previous" ]; then
+            # Get previous stable tag
+            TARGET=$(git tag --sort=-version:refname --list 'v*' | head -2 | tail -1)
+            if [ -z "$TARGET" ]; then
+              echo "Could not find previous version"
+              exit 1
+            fi
+          fi
+
+          # Validate format
+          if ! [[ $TARGET =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version format: $TARGET"
+            exit 1
+          fi
+
+          echo "version=$TARGET" >> $GITHUB_OUTPUT
+          echo "Rolling back to: $TARGET"
+
+  rollback:
+    needs: determine-version
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+      deployments: write
+    outputs:
+      deployment-id: ${{ steps.deploy.outputs.deployment-id }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create rollback deployment
+        id: deploy
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'main',
+              environment: 'production',
+              auto_merge: false,
+              required_contexts: [],
+              description: 'Rollback to ${{ needs.determine-version.outputs.target }}'
+            });
+            core.setOutput('deployment-id', deployment.data.id);
+
+      - name: Execute rollback
+        timeout-minutes: 15
+        run: |
+          set -e
+
+          VERSION="${{ needs.determine-version.outputs.target }}"
+          PROD_HOST="${{ secrets.PROD_DEPLOY_HOST }}"
+          PROD_USER="${{ secrets.PROD_DEPLOY_USER }}"
+          PROD_KEY="${{ secrets.PROD_DEPLOY_KEY }}"
+          DEPLOY_PATH="/opt/anpr/prod"
+
+          mkdir -p ~/.ssh
+          echo "$PROD_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$PROD_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          echo "Rolling back to $VERSION..."
+
+          ssh -i ~/.ssh/deploy_key "$PROD_USER@$PROD_HOST" bash << 'EOF'
+            set -e
+            cd $DEPLOY_PATH
+
+            echo "=== PRODUCTION ROLLBACK ==="
+            echo "Reason: ${{ github.event.inputs.reason }}"
+            echo "Target version: $VERSION"
+
+            # Stop current deployment
+            echo "Stopping current deployment..."
+            docker-compose -f docker-compose.prod.yml down || true
+
+            # Pull previous version
+            echo "Deploying previous version..."
+            export IMAGE_TAG="$VERSION"
+            docker-compose -f docker-compose.prod.yml pull api worker
+            docker-compose -f docker-compose.prod.yml up -d api worker
+
+            # Health check
+            echo "Waiting for API to be healthy..."
+            MAX_ATTEMPTS=30
+            for i in $(seq 1 $MAX_ATTEMPTS); do
+              if docker-compose -f docker-compose.prod.yml exec -T api curl -f http://localhost:8000/healthz > /dev/null 2>&1; then
+                echo "Rollback successful - API is healthy"
+                break
+              fi
+              if [ $i -eq $MAX_ATTEMPTS ]; then
+                echo "Rollback failed - API did not become healthy"
+                exit 1
+              fi
+              sleep 2
+            done
+
+            echo "Rollback complete"
+            docker-compose -f docker-compose.prod.yml ps
+          EOF
+
+      - name: Verify rollback
+        run: |
+          PROD_URL="https://api.anpr.com"
+          echo "Verifying rollback at $PROD_URL..."
+
+          # Wait for DNS/LB propagation
+          sleep 10
+
+          for i in {1..10}; do
+            if curl -f "$PROD_URL/healthz"; then
+              echo "Production API is responding after rollback"
+              break
+            fi
+            if [ $i -eq 10 ]; then
+              echo "Production health check failed after rollback"
+              exit 1
+            fi
+            sleep 5
+          done
+
+          curl -f "$PROD_URL/api/v1/status" || exit 1
+          echo "Rollback verified"
+
+      - name: Mark rollback successful
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deploy.outputs.deployment-id }},
+              state: 'success',
+              environment_url: 'https://api.anpr.com',
+              description: 'Rollback to ${{ needs.determine-version.outputs.target }} succeeded'
+            });
+
+      - name: Mark rollback failed
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deploy.outputs.deployment-id }},
+              state: 'failure',
+              description: 'Rollback failed - manual intervention required'
+            });
+
+      - name: Notify Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_DEPLOY }}
+          payload: |
+            {
+              "text": "Production rollback ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Production Rollback ${{ job.status == 'success' && '✅' || '❌' }}*\n*Target Version:* ${{ needs.determine-version.outputs.target }}\n*Reason:* ${{ github.event.inputs.reason }}\n*Triggered by:* ${{ github.actor }}\n*Action:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }
+        continue-on-error: true

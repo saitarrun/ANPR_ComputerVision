@@ -1,0 +1,116 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: anpr_postgres_prod
+    environment:
+      POSTGRES_USER: anpr
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: anpr
+      POSTGRES_INITDB_ARGS: "-c max_connections=200 -c log_statement=all"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anpr -d anpr"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - anpr-prod
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: anpr_redis_prod
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_prod:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - anpr-prod
+    restart: always
+
+  api:
+    image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+    container_name: anpr_api_prod
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+asyncpg://anpr:${POSTGRES_PASSWORD}@postgres:5432/anpr
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      FERNET_KEY: ${FERNET_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY: ${SECRET_KEY}
+      LOG_LEVEL: WARNING
+      WORKERS: 8
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: always
+    networks:
+      - anpr-prod
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "1"
+          memory: 1G
+
+  worker:
+    image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+    container_name: anpr_worker_prod
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+asyncpg://anpr:${POSTGRES_PASSWORD}@postgres:5432/anpr
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/0
+      FERNET_KEY: ${FERNET_KEY}
+      LOG_LEVEL: WARNING
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A workers.celery_app worker --loglevel=warning --concurrency=8 --time-limit=3600 --soft-time-limit=3500
+    restart: always
+    networks:
+      - anpr-prod
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4G
+        reservations:
+          cpus: "2"
+          memory: 2G
+
+volumes:
+  postgres_data_prod:
+    driver: local
+  redis_data_prod:
+    driver: local
+
+networks:
+  anpr-prod:
+    driver: bridge

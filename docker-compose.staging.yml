@@ -1,0 +1,91 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: anpr_postgres_staging
+    environment:
+      POSTGRES_USER: anpr
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      POSTGRES_DB: anpr
+      POSTGRES_INITDB_ARGS: "-c max_connections=100"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_staging:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anpr -d anpr"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - anpr-staging
+
+  redis:
+    image: redis:7-alpine
+    container_name: anpr_redis_staging
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - anpr-staging
+
+  api:
+    image: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+    container_name: anpr_api_staging
+    environment:
+      APP_ENV: staging
+      DATABASE_URL: postgresql+asyncpg://anpr:$POSTGRES_PASSWORD@postgres:5432/anpr
+      REDIS_URL: redis://redis:6379/0
+      FERNET_KEY: $FERNET_KEY
+      JWT_SECRET: $JWT_SECRET
+      SECRET_KEY: $SECRET_KEY
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: on-failure:3
+    networks:
+      - anpr-staging
+
+  worker:
+    image: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+    container_name: anpr_worker_staging
+    environment:
+      APP_ENV: staging
+      DATABASE_URL: postgresql+asyncpg://anpr:$POSTGRES_PASSWORD@postgres:5432/anpr
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      FERNET_KEY: $FERNET_KEY
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A workers.celery_app worker --loglevel=info --concurrency=4
+    restart: on-failure:3
+    networks:
+      - anpr-staging
+
+volumes:
+  postgres_data_staging:
+
+networks:
+  anpr-staging:
+    driver: bridge
