@@ -126,8 +126,9 @@ def db_session_sync(db_session):
 
 @pytest.fixture
 def jwt_secret() -> str:
-    """JWT secret key for testing."""
-    return os.environ.get("JWT_SECRET", "test-secret-key-min-32-chars-long-value-here-ok!")
+    """JWT secret key for testing - uses app settings."""
+    from api.config import settings
+    return settings.jwt_secret
 
 
 @pytest.fixture
