@@ -1,11 +1,11 @@
 """Authentication schemas."""
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 class LoginRequest(BaseModel):
     """Login request."""
 
-    email: EmailStr
+    email: str
     password: str
 
 

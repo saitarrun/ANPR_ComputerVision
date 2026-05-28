@@ -59,7 +59,7 @@ services:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       SECRET_KEY: dev-secret-key-change-in-prod
-      JWT_SECRET: dev-jwt-secret-32-bytes-minimum
+      JWT_SECRET: dev-jwt-secret-key-for-testing-purposes
       FERNET_KEY: 5I0cJ1_8XY-Zx9Bk3Lp5-Qm2Nb7Vf6Tg4Dh8Wj0Sa9_Pu1Rt3Us5Vw6Xy7Za8Bc9De0Fg
     ports:
       - "8000:8000"

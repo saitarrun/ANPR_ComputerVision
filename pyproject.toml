@@ -19,7 +19,9 @@ dependencies = [
     "sqlalchemy>=2.0.36",
     "alembic>=1.14",
     "psycopg[binary]>=3.2",
+    "asyncpg>=0.31",
     "redis>=5.2",
+    "aioredis>=2.1",
     "boto3>=1.35",
     # CV + detection
     "opencv-python>=4.10",
