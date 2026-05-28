@@ -21,6 +21,8 @@ jobs:
     permissions:
       contents: read
       packages: read
+      deployments: write
+      statuses: write
     outputs:
       deployment-id: ${{ steps.deploy.outputs.deployment-id }}
       image-tag: ${{ steps.image-tag.outputs.tag }}
@@ -138,7 +140,7 @@ jobs:
 
       # Mark deployment as successful
       - name: Mark deployment successful
-        if: success()
+        if: success() && steps.deploy.outputs.deployment-id
         uses: actions/github-script@v7
         with:
           script: |
@@ -153,7 +155,7 @@ jobs:
 
       # Mark deployment as failed
       - name: Mark deployment failed
-        if: failure()
+        if: failure() && steps.deploy.outputs.deployment-id
         uses: actions/github-script@v7
         with:
           script: |
@@ -168,7 +170,7 @@ jobs:
       # Notify on failure
       - name: Notify Slack on failure
         if: failure()
-        uses: slackapi/slack-github-action@v1.25.0
+        uses: slackapi/slack-github-action@v2.0.0
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_DEPLOY }}
           payload: |
