@@ -38,7 +38,6 @@ data/
 *.log
 
 # Documentation and CI/CD
-README.md
 docs/
 .github/
 .gitlab-ci.yml

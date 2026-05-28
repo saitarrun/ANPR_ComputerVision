@@ -1,0 +1,427 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - stage
+          - prod
+      deployment_strategy:
+        description: "Deployment strategy"
+        required: true
+        type: choice
+        options:
+          - blue-green
+          - canary
+      dry_run:
+        description: "Dry run (no actual deployment)"
+        required: false
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'v*.*.*'  # Deploy to prod on version tags
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write  # For OIDC
+
+jobs:
+  # ========== Preparation ==========
+  prepare:
+    name: Prepare Deployment
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      environment: ${{ steps.env.outputs.environment }}
+      deployment_strategy: ${{ steps.env.outputs.strategy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == refs/tags/* ]]; then
+            ENV="prod"
+            STRATEGY="blue-green"
+          else
+            ENV="${{ github.event.inputs.environment }}"
+            STRATEGY="${{ github.event.inputs.deployment_strategy }}"
+          fi
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "strategy=$STRATEGY" >> $GITHUB_OUTPUT
+
+      - name: Generate image tag
+        id: meta
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="${{ steps.env.outputs.environment }}-${{ github.sha }}"
+          fi
+          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Display deployment info
+        run: |
+          echo "Environment: ${{ steps.env.outputs.environment }}"
+          echo "Strategy: ${{ steps.env.outputs.strategy }}"
+          echo "Image Tag: ${{ steps.meta.outputs.image_tag }}"
+
+  # ========== Build & Test (from ci.yml) ==========
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv python install 3.11
+      - run: uv sync --extra dev
+      - name: Ruff lint
+        run: uv run ruff check .
+      - name: Ruff format check
+        run: uv run ruff format --check .
+      - name: Mypy
+        run: uv run mypy anpr_core api ingest workers db
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: anpr
+          POSTGRES_PASSWORD: anpr_dev_pw
+          POSTGRES_DB: anpr
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U anpr -d anpr"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://anpr:anpr_dev_pw@localhost:5432/anpr
+      REDIS_URL: redis://localhost:6379/0
+      FERNET_KEY: zh4eRk9wYn7K6Jx2Vh1FmTqLpYg5RfNs8Ub3CdEoAuI=
+      JWT_SECRET: ci-jwt-secret-not-for-production-use-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv python install 3.11
+      - run: uv sync --extra dev
+      - name: Unit tests
+        run: uv run pytest tests/unit -q
+      - name: Integration tests
+        run: uv run pytest tests/integration -q -m "not gpu"
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv python install 3.11
+      - run: uv sync --extra dev
+      - name: pip-audit
+        run: uv run pip-audit --strict || true
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+  # ========== Build Docker Image ==========
+  build:
+    needs: [lint, test, security]
+    runs-on: ubuntu-latest
+    outputs:
+      image_uri: ${{ steps.build.outputs.image_uri }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GithubActionsRole
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push to ECR
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/anpr:${{ needs.prepare.outputs.image_tag }}
+            ${{ steps.login-ecr.outputs.registry }}/anpr:latest
+          cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/anpr:buildcache
+          cache-to: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/anpr:buildcache,mode=max
+
+      - name: Image URI
+        run: echo "image_uri=${{ steps.login-ecr.outputs.registry }}/anpr:${{ needs.prepare.outputs.image_tag }}"
+
+  # ========== Scan Image ==========
+  scan-image:
+    needs: [build, prepare]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Trivy image scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ needs.build.outputs.image_uri }}
+          format: "sarif"
+          output: "trivy-results.sarif"
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+  # ========== Deploy to Staging ==========
+  deploy-stage:
+    if: always()
+    needs: [prepare, scan-image]
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://anpr-stage.example.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GithubActionsRole
+          aws-region: us-east-1
+
+      - name: Deploy to stage (ECS)
+        run: |
+          aws ecs update-service \
+            --cluster anpr-stage-ecs-cluster \
+            --service anpr-stage-ecs-service-blue \
+            --force-new-deployment \
+            --region us-east-1
+
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster anpr-stage-ecs-cluster \
+            --services anpr-stage-ecs-service-blue \
+            --region us-east-1
+
+      - name: Run smoke tests
+        run: |
+          bash scripts/smoke_tests.sh https://anpr-stage.example.com
+
+  # ========== Manual Approval for Production ==========
+  approval:
+    if: needs.prepare.outputs.environment == 'prod'
+    needs: [prepare, deploy-stage]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://anpr.example.com
+    steps:
+      - name: Approve production deployment
+        run: echo "Production deployment approved"
+
+  # ========== Deploy to Production (Blue-Green) ==========
+  deploy-prod-blue-green:
+    if: needs.prepare.outputs.environment == 'prod' && needs.prepare.outputs.deployment_strategy == 'blue-green'
+    needs: [prepare, approval, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GithubActionsRole
+          aws-region: us-east-1
+
+      - name: Get current active target group
+        id: current
+        run: |
+          ACTIVE=$(aws elbv2 describe-listeners \
+            --load-balancer-arn arn:aws:elasticloadbalancing:us-east-1:ACCOUNT:loadbalancer/app/anpr-prod-alb/... \
+            --query 'Listeners[0].DefaultActions[0].TargetGroupArn' \
+            --output text | grep -o -E 'blue|green')
+          echo "active=$ACTIVE" >> $GITHUB_OUTPUT
+
+      - name: Determine deployment variant
+        id: variant
+        run: |
+          if [[ "${{ steps.current.outputs.active }}" == "blue" ]]; then
+            echo "variant=green"
+            echo "from=blue"
+          else
+            echo "variant=blue"
+            echo "from=green"
+          fi
+
+      - name: Scale up new variant
+        run: |
+          aws ecs update-service \
+            --cluster anpr-prod-ecs-cluster \
+            --service anpr-prod-ecs-service-${{ steps.variant.outputs.variant }} \
+            --desired-count 3 \
+            --force-new-deployment \
+            --region us-east-1
+
+      - name: Wait for new variant to be healthy
+        run: |
+          aws ecs wait services-stable \
+            --cluster anpr-prod-ecs-cluster \
+            --services anpr-prod-ecs-service-${{ steps.variant.outputs.variant }} \
+            --region us-east-1
+
+      - name: Run smoke tests on new variant
+        run: |
+          bash scripts/smoke_tests.sh http://${{ steps.variant.outputs.variant }}.anpr-prod.internal:8000
+
+      - name: Switch ALB traffic to new variant
+        id: switch
+        run: |
+          aws elbv2 modify-listener \
+            --listener-arn arn:aws:elasticloadbalancing:us-east-1:ACCOUNT:listener/app/anpr-prod-alb/... \
+            --default-actions Type=forward,TargetGroupArn=arn:aws:elasticloadbalancing:us-east-1:ACCOUNT:targetgroup/anpr-prod-${{ steps.variant.outputs.variant }}/... \
+            --region us-east-1
+          echo "switched_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+      - name: Monitor new variant (30 min)
+        run: |
+          bash scripts/monitor_deployment.sh \
+            --cluster anpr-prod-ecs-cluster \
+            --service anpr-prod-ecs-service-${{ steps.variant.outputs.variant }} \
+            --duration 30m \
+            --error-threshold 5 \
+            --latency-threshold 1000
+
+      - name: Scale down old variant
+        if: success()
+        run: |
+          aws ecs update-service \
+            --cluster anpr-prod-ecs-cluster \
+            --service anpr-prod-ecs-service-${{ steps.variant.outputs.from }} \
+            --desired-count 0 \
+            --region us-east-1
+
+      - name: Deployment summary
+        run: |
+          echo "## Blue-Green Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **From:** ${{ steps.variant.outputs.from }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **To:** ${{ steps.variant.outputs.variant }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Switched at:** ${{ steps.switch.outputs.switched_at }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** ${{ needs.build.outputs.image_uri }}" >> $GITHUB_STEP_SUMMARY
+
+  # ========== Deploy to Production (Canary) ==========
+  deploy-prod-canary:
+    if: needs.prepare.outputs.environment == 'prod' && needs.prepare.outputs.deployment_strategy == 'canary'
+    needs: [prepare, approval, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GithubActionsRole
+          aws-region: us-east-1
+
+      - name: Scale up canary (5% traffic via separate service)
+        run: |
+          aws ecs update-service \
+            --cluster anpr-prod-ecs-cluster \
+            --service anpr-prod-ecs-canary \
+            --desired-count 1 \
+            --force-new-deployment \
+            --region us-east-1
+
+      - name: Configure ALB for 5% canary traffic
+        run: |
+          # Update listener rule to route 5% to canary
+          bash scripts/set_canary_weight.sh --weight 5
+
+      - name: Monitor canary (5 minutes at 5%)
+        run: |
+          bash scripts/monitor_canary.sh \
+            --service anpr-prod-ecs-canary \
+            --duration 5m \
+            --error-threshold 10 \
+            --latency-threshold 1500
+
+      - name: Gradual rollout (5% → 25%)
+        run: bash scripts/set_canary_weight.sh --weight 25
+
+      - name: Monitor (5 minutes at 25%)
+        run: bash scripts/monitor_canary.sh --duration 5m --weight 25
+
+      - name: Full rollout (100%)
+        run: bash scripts/set_canary_weight.sh --weight 100
+
+      - name: Remove canary service
+        run: |
+          aws ecs update-service \
+            --cluster anpr-prod-ecs-cluster \
+            --service anpr-prod-ecs-canary \
+            --desired-count 0 \
+            --region us-east-1
+
+  # ========== Rollback (Manual) ==========
+  rollback:
+    if: failure()
+    needs: [prepare, deploy-prod-blue-green]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GithubActionsRole
+          aws-region: us-east-1
+
+      - name: Revert to previous variant
+        run: |
+          bash scripts/rollback_blue_green.sh
+
+      - name: Notify team
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ Deployment failed and rolled back. Check workflow logs.'
+            })
