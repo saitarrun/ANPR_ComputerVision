@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
 import logging
 import re
+import signal
 
 from api.deps import get_db_session, get_current_user_id
 from db.models import Watchlist
@@ -14,13 +15,51 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/watchlist", tags=["watchlist"])
 
+# Regex timeout threshold (seconds)
+REGEX_TIMEOUT_SEC = 1
+
+
+def _regex_timeout_handler(signum, frame):
+    """Signal handler for regex timeout."""
+    raise TimeoutError("Regex evaluation timeout (ReDoS protection)")
+
 
 def validate_regex_pattern(pattern: str) -> bool:
-    """Validate regex pattern compiles."""
+    """Validate regex pattern compiles and doesn't timeout (ReDoS protection).
+
+    Args:
+        pattern: Regex pattern to validate
+
+    Returns:
+        True if pattern is valid and evaluates quickly, False otherwise
+    """
     try:
-        re.compile(pattern)
+        # Test compilation
+        compiled = re.compile(pattern)
+
+        # Test matching with timeout (Unix/Linux/macOS only)
+        # This prevents catastrophic backtracking (ReDoS)
+        try:
+            signal.signal(signal.SIGALRM, _regex_timeout_handler)
+            signal.alarm(REGEX_TIMEOUT_SEC)
+
+            # Attempt a match on a test string to detect ReDoS patterns
+            # Use a string that might trigger backtracking
+            test_string = "A" * 50 + "INVALID"
+            compiled.match(test_string)
+
+            signal.alarm(0)  # Cancel alarm
+        except TimeoutError:
+            signal.alarm(0)  # Cancel alarm
+            logger.warning(f"Regex pattern timed out (ReDoS risk): {pattern}")
+            return False
+
         return True
-    except re.error:
+    except re.error as e:
+        logger.warning(f"Invalid regex pattern: {pattern} - {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error validating regex: {e}")
         return False
 
 

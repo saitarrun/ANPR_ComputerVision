@@ -10,6 +10,7 @@ import numpy as np
 
 from anpr_core.pipeline.orchestrator import ANPROrchestrator
 from workers.celery_app import celery_app
+from api.crypto import decrypt_frame
 
 logger = logging.getLogger(__name__)
 
@@ -28,13 +29,13 @@ def _get_orchestrator() -> ANPROrchestrator:
 
 
 @celery_app.task(name="process_frame", bind=True)
-def process_frame(self: Any, stream_id: str, frame_bytes_b64: str, camera_id: str) -> dict:
+def process_frame(self: Any, stream_id: str, frame_bytes_encrypted: bytes, camera_id: str) -> dict:
     """
     Process a frame through the ANPR pipeline (M2–M5).
 
     Args:
         stream_id: Stream identifier
-        frame_bytes_b64: Frame bytes as base64
+        frame_bytes_encrypted: Encrypted frame bytes from Redis
         camera_id: Camera identifier
 
     Returns:
@@ -49,8 +50,8 @@ def process_frame(self: Any, stream_id: str, frame_bytes_b64: str, camera_id: st
     task_start = time.time()
 
     try:
-        # Decode frame
-        frame_bytes = base64.b64decode(frame_bytes_b64)
+        # Decrypt frame from Redis
+        frame_bytes = decrypt_frame(frame_bytes_encrypted)
         frame_array = np.frombuffer(frame_bytes, dtype=np.uint8)
         image = cv2.imdecode(frame_array, cv2.IMREAD_COLOR)
 

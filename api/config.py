@@ -43,6 +43,7 @@ class Settings(BaseSettings):
 
     # ---- Encryption ----
     fernet_key: str = Field(default="", validation_alias="FERNET_KEY")
+    celery_encryption_key: str = Field(..., validation_alias="CELERY_ENCRYPTION_KEY", min_length=44)
 
     # ---- Database ----
     database_url: str = Field(..., validation_alias="DATABASE_URL")

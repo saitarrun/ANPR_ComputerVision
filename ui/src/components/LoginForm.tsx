@@ -80,7 +80,7 @@ export const LoginForm = () => {
         </form>
 
         <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-6">
-          Demo credentials: operator@example.com / password
+          Demo credentials: test@example.com / password123
         </p>
       </div>
     </div>

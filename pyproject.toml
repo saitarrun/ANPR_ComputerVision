@@ -15,6 +15,7 @@ dependencies = [
     "pydantic-settings>=2.6",
     "python-multipart>=0.0.17",
     "websockets>=13.1",
+    "slowapi>=0.1.9",
     # Persistence
     "sqlalchemy>=2.0.36",
     "alembic>=1.14",

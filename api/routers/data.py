@@ -1,9 +1,11 @@
 """Data endpoints for regions, cameras, detections, and plates."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
 import logging
+import re
+from uuid import UUID
 
 from api.deps import get_db_session, get_current_user_id
 from db.models import Region, Camera, Detection, Plate

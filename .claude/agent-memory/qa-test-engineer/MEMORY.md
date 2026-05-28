@@ -1,1 +1,3 @@
 - [M6 Test Suite](m6_test_suite.md) — 221 tests, testcontainers infra, fixture patterns, gate criteria
+- [E2E Test Results 2026-05-28](e2e_test_results.md) — Full-stack test: 4 critical blockers, 96 unit tests failing
+- [M6 API Fixes Test Coverage](m6_api_fixes_test_coverage.md) — 19 passing tests for 5 critical API fixes

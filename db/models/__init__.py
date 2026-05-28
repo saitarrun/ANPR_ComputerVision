@@ -10,6 +10,7 @@ from db.models.audit_log import AuditLog
 from db.models.api_key import APIKey
 from db.models.user_stream import UserStream
 from db.models.audit_archive import AuditArchive
+from db.models.user_region_assignment import UserRegionAssignment
 
 __all__ = [
     "User",
@@ -23,4 +24,5 @@ __all__ = [
     "APIKey",
     "UserStream",
     "AuditArchive",
+    "UserRegionAssignment",
 ]

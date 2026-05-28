@@ -1,0 +1,1 @@
+- [M6 Backend Threat Model](threat_model_m6_backend.md) — Full security assessment: 15 findings (4 critical, 9 high, 2 medium), CORS bypass, authz bypass, WebSocket token exposure
