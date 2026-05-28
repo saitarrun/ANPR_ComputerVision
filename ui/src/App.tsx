@@ -8,6 +8,8 @@ import { LivePage } from './pages/LivePage';
 import { PlatesPage } from './pages/PlatesPage';
 import { DetectionsPage } from './pages/DetectionsPage';
 import { WatchlistPage } from './pages/WatchlistPage';
+import { ReviewQueuePage } from './pages/ReviewQueuePage';
+import { AuditLogPage } from './pages/AuditLogPage';
 import { useAuth } from './hooks/useAuth';
 
 const queryClient = new QueryClient({
@@ -34,6 +36,8 @@ function AppRoutes() {
         <Route path="plates" element={<PlatesPage />} />
         <Route path="detections" element={<DetectionsPage />} />
         <Route path="watchlist" element={<WatchlistPage />} />
+        <Route path="review" element={<ReviewQueuePage />} />
+        <Route path="audit" element={<AuditLogPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

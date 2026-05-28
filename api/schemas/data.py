@@ -109,3 +109,43 @@ class WatchlistOut(BaseModel):
 
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}
+
+
+class ReviewQueueOut(BaseModel):
+    """Review queue item response schema."""
+
+    id: str
+    detection_id: str
+    status: str
+    reviewer_id: Optional[str] = None
+    detection_blob: dict
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        json_encoders = {datetime: lambda v: v.isoformat()}
+
+
+class ReviewQueueResolve(BaseModel):
+    """Review queue resolution schema."""
+
+    status: str  # approved, rejected, flagged
+    notes: Optional[str] = None
+    corrected_plate: Optional[str] = None
+
+
+class AuditLogOut(BaseModel):
+    """Audit log response schema."""
+
+    id: str
+    user_id: str
+    action: str
+    resource_type: str
+    resource_id: str
+    ip_address: str
+    details: dict
+    created_at: datetime
+
+    class Config:
+        json_encoders = {datetime: lambda v: v.isoformat()}

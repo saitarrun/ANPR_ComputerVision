@@ -13,6 +13,8 @@ export const AppLayout = () => {
     { label: 'Plates', href: '/plates', icon: '🔍' },
     { label: 'Detections', href: '/detections', icon: '📊' },
     { label: 'Watchlist', href: '/watchlist', icon: '🎯' },
+    { label: 'Review', href: '/review', icon: '👁️' },
+    { label: 'Audit', href: '/audit', icon: '📋' },
   ];
 
   const isActive = (href: string) => location.pathname === href;
@@ -81,6 +83,8 @@ export const AppLayout = () => {
             {location.pathname === '/plates' && 'License Plates'}
             {location.pathname === '/detections' && 'Detections'}
             {location.pathname === '/watchlist' && 'Watchlist'}
+            {location.pathname === '/review' && 'Review Queue'}
+            {location.pathname === '/audit' && 'Audit Log'}
           </h1>
         </div>
 

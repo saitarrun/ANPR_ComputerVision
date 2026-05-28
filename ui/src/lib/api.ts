@@ -122,6 +122,28 @@ export interface WatchlistResponse {
   updated_at: string;
 }
 
+export interface ReviewQueueResponse {
+  id: string;
+  detection_id: string;
+  status: 'pending' | 'approved' | 'rejected' | 'flagged';
+  reviewer_id?: string;
+  detection_blob: Record<string, any>;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuditLogResponse {
+  id: string;
+  user_id: string;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  ip_address: string;
+  details: Record<string, any>;
+  created_at: string;
+}
+
 // API endpoints
 export const authAPI = {
   login: (data: LoginRequest) =>
@@ -171,6 +193,25 @@ export const watchlistAPI = {
     apiClient.put<WatchlistResponse>(`/v1/watchlist/${id}`, data),
   delete: (id: string) =>
     apiClient.delete(`/v1/watchlist/${id}`),
+};
+
+export const reviewQueueAPI = {
+  list: (filters?: { status_filter?: string; confidence_min?: number; confidence_max?: number; region_id?: string; limit?: number }) =>
+    apiClient.get<ReviewQueueResponse[]>('/v1/review-queue', { params: filters }),
+  resolve: (id: string, data: { status: string; notes?: string; corrected_plate?: string }) =>
+    apiClient.post<ReviewQueueResponse>(`/v1/review-queue/${id}/resolve`, data),
+  stats: () =>
+    apiClient.get<{ pending: number; approved: number; rejected: number; flagged: number; avg_confidence: number }>('/v1/review-queue/stats'),
+};
+
+export const auditLogAPI = {
+  list: (filters?: { date_from?: string; date_to?: string; user_id_filter?: string; action?: string; resource_type?: string; limit?: number }) =>
+    apiClient.get<AuditLogResponse[]>('/v1/audit-log', { params: filters }),
+  exportCSV: (filters?: { date_from?: string; date_to?: string; user_id_filter?: string }) =>
+    apiClient.get('/v1/audit-log/export/csv', {
+      params: filters,
+      responseType: 'blob' as const,
+    }),
 };
 
 // WebSocket URL helper
