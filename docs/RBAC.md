@@ -1,7 +1,7 @@
 # Role-Based Access Control (RBAC) & Threat Model
 
-**Document Version:** 1.0  
-**Last Updated:** 2026-05-28  
+**Document Version:** 1.0
+**Last Updated:** 2026-05-28
 **Author:** Security Threat Architect
 
 ## Executive Summary
@@ -129,7 +129,7 @@ Even with role-based access, additional row-level checks enforce least privilege
 
 async def get_plates(user: User, skip: int = 0, limit: int = 100):
     query = select(Plate)
-    
+
     if user.role == "viewer":
         # Restrict to authorized streams (via join)
         query = query.join(Stream).filter(Stream.viewer_user_ids.contains(user.id))
@@ -140,7 +140,7 @@ async def get_plates(user: User, skip: int = 0, limit: int = 100):
             (Stream.operator_user_ids.contains(user.id))
         )
     # admin: no filter (sees all)
-    
+
     return await session.execute(query.offset(skip).limit(limit))
 ```
 
@@ -260,7 +260,7 @@ CREATE TABLE plates (
 
 ```
 Current (DEV): Single Fernet key
-Future (PROD): 
+Future (PROD):
   ├─ Master key: stored in AWS KMS
   ├─ Derive region-specific DEKs (Data Encryption Keys)
   ├─ Encrypt plate_string with DEK
@@ -352,17 +352,17 @@ class AuditLog(Base):
 async def check_rate_limit(endpoint: str, user_id: str, limit: int, window_sec: int):
     key = f"rate_limit:{endpoint}:{user_id}"
     bucket = await redis.get(key)
-    
+
     if not bucket:
         await redis.setex(key, window_sec, json.dumps({"tokens": limit - 1}))
         return True  # Request allowed
-    
+
     bucket = json.loads(bucket)
     if bucket["tokens"] > 0:
         bucket["tokens"] -= 1
         await redis.setex(key, window_sec, json.dumps(bucket))
         return True  # Request allowed
-    
+
     return False  # Rate limit exceeded; respond with 429 Too Many Requests
 ```
 
@@ -398,19 +398,19 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"  # Non-negotiable
     jwt_access_token_expire_minutes: int = 15  # Short
     jwt_refresh_token_expire_days: int = 7
-    
+
     password_min_length: int = 8
     bcrypt_cost: int = 12
-    
+
     rate_limit_enabled: bool = True  # Enforce by default
     rate_limit_login_per_minute: int = 5
-    
+
     database_pool_size: int = 10
     database_max_overflow: int = 20
-    
+
     audit_log_enabled: bool = True  # Always audit
     audit_log_s3_backup: bool = True  # Daily export
-    
+
     # HTTPS enforcement (in middleware)
     require_https: bool = True
 ```
@@ -529,6 +529,6 @@ trivy fs .
 
 ---
 
-**Document Status:** READY FOR IMPLEMENTATION  
-**Approved By:** Security Threat Architect  
+**Document Status:** READY FOR IMPLEMENTATION
+**Approved By:** Security Threat Architect
 **Next Review:** After M6 integration tests pass

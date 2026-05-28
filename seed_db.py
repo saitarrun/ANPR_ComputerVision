@@ -3,12 +3,10 @@
 import asyncio
 import uuid
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from db.engine import AsyncSessionLocal, init_db
-from db.models import Region, Camera, Plate, Detection, User
 from api.security import hash_password
+from db.engine import AsyncSessionLocal, init_db
+from db.models import Camera, Detection, Plate, Region, User
 
 
 async def seed_database():
@@ -47,6 +45,7 @@ async def seed_database():
 
         # Create test user
         from api.config import UserRole
+
         user = User(
             id=uuid.uuid4(),
             email="test@example.com",
@@ -195,7 +194,7 @@ async def seed_database():
         print(f"  - {len(cameras)} cameras")
         print(f"  - {len(plates)} plates")
         print(f"  - {len(detections)} detections")
-        print(f"  - 1 test user: test@example.com / password123")
+        print("  - 1 test user: test@example.com / password123")
 
 
 if __name__ == "__main__":

@@ -559,6 +559,6 @@ terraform destroy -var-file="terraform.tfvars"
 
 ---
 
-**Last Updated:** 2026-05-28  
-**Maintained by:** DevOps Team  
+**Last Updated:** 2026-05-28
+**Maintained by:** DevOps Team
 **Status:** Production-ready

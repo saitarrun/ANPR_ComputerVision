@@ -4,16 +4,15 @@ import argparse
 import base64
 import logging
 import sys
-from typing import Optional
 
 import cv2
 import requests
 
 from ingest.base import FrameSource
-from ingest.webcam import WebcamSource
-from ingest.rtsp import RTSPSource
 from ingest.file import FileSource
 from ingest.iphone import iPhoneSource
+from ingest.rtsp import RTSPSource
+from ingest.webcam import WebcamSource
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,13 +21,13 @@ logger = logging.getLogger(__name__)
 class APIIngestClient:
     """Client for sending frames to ANPR backend API."""
 
-    def __init__(self, api_url: str = "http://localhost:8000", token: Optional[str] = None):
+    def __init__(self, api_url: str = "http://localhost:8000", token: str | None = None):
         self.api_url = api_url
         self.headers = {"Authorization": f"Bearer {token}"} if token else {}
         self.session = requests.Session()
         self.session.headers.update(self.headers)
 
-    def ingest_frame(self, stream_id: str, frame_bytes: bytes, camera_id: str) -> Optional[str]:
+    def ingest_frame(self, stream_id: str, frame_bytes: bytes, camera_id: str) -> str | None:
         """Send frame to API.
 
         Args:
@@ -52,14 +51,13 @@ class APIIngestClient:
             if response.status_code == 200:
                 data = response.json()
                 return data.get("task_id")
-            else:
-                logger.error(f"API error: {response.status_code} {response.text}")
-                return None
+            logger.error(f"API error: {response.status_code} {response.text}")
+            return None
         except Exception as e:
             logger.error(f"Failed to ingest frame: {e}")
             return None
 
-    def get_task_status(self, task_id: str) -> Optional[dict]:
+    def get_task_status(self, task_id: str) -> dict | None:
         """Poll task status.
 
         Args:
@@ -72,9 +70,8 @@ class APIIngestClient:
             response = self.session.get(f"{self.api_url}/v1/ingest/task/{task_id}")
             if response.status_code == 200:
                 return response.json()
-            else:
-                logger.error(f"Failed to get task status: {response.status_code}")
-                return None
+            logger.error(f"Failed to get task status: {response.status_code}")
+            return None
         except Exception as e:
             logger.error(f"Failed to fetch task status: {e}")
             return None
@@ -85,7 +82,7 @@ def ingest_from_source(
     stream_id: str,
     camera_id: str,
     api_client: APIIngestClient,
-    max_frames: Optional[int] = None,
+    max_frames: int | None = None,
 ) -> None:
     """Read frames from source and send to API.
 
@@ -143,7 +140,7 @@ def main():
     args = parser.parse_args()
 
     # Initialize source
-    source: Optional[FrameSource] = None
+    source: FrameSource | None = None
     if args.source == "webcam":
         source = WebcamSource()
     elif args.source == "rtsp":

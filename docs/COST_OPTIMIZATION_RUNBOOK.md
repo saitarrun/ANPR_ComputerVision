@@ -1,9 +1,9 @@
 # ANPR Cost Optimization Runbook
 
-**Status:** Ready for Implementation (Phase 0)  
-**Target Savings:** 78% cost reduction ($235–340/month)  
-**Implementation Timeline:** 4 weeks  
-**Baseline Cost:** $285–400/month (current over-provisioned config)  
+**Status:** Ready for Implementation (Phase 0)
+**Target Savings:** 78% cost reduction ($235–340/month)
+**Implementation Timeline:** 4 weeks
+**Baseline Cost:** $285–400/month (current over-provisioned config)
 **Optimized Cost:** $60–80/month baseline + $10–20/month peak overage
 
 ---
@@ -154,7 +154,7 @@ elasticache_automatic_failover = false
 - Detection queue: ~100 KB
 - **Total: <250 KB** (plenty of headroom)
 
-**Risk:** Single-node failure → 5min service restart (no persistence). Acceptable for Phase 0.  
+**Risk:** Single-node failure → 5min service restart (no persistence). Acceptable for Phase 0.
 **Phase 1 Mitigation:** Add 2-node cluster mode with automatic failover.
 
 ### 4. S3 Intelligent-Tiering & Lifecycle
@@ -483,6 +483,6 @@ SAVINGS:      $225–348/month (78% reduction)
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2026-05-28  
+**Document Version:** 1.0
+**Last Updated:** 2026-05-28
 **Next Review:** 2026-08-28 (Q3 2026)

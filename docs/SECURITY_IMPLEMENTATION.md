@@ -1,7 +1,7 @@
 # M6 Security Layer Implementation Summary
 
-**Status:** COMPLETE  
-**Date:** 2026-05-28  
+**Status:** COMPLETE
+**Date:** 2026-05-28
 **Scope:** JWT authentication, password hashing, plate encryption, RBAC, audit logging
 
 ---
@@ -138,7 +138,7 @@ class AuditLog(Base):
     resource_id: Optional[UUID] = Column(UUID)
     ip_address: str = Column(String(45))
     created_at: datetime = Column(DateTime, server_default=utcnow)
-    
+
     # Immutable: no UPDATE, only INSERT
 ```
 
@@ -327,13 +327,13 @@ from api.security import verify_password, create_access_token, create_refresh_to
 async def login(email: str, password: str, session: AsyncSession = Depends(get_db_session)):
     user = await session.execute(select(User).where(User.email == email))
     user = user.scalars().first()
-    
+
     if not user or not verify_password(password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    
+
     access_token = create_access_token(str(user.id), user.role)
     refresh_token = create_refresh_token(str(user.id))
-    
+
     # Log to audit_log
     await audit_log.create(
         user_id=user.id,
@@ -341,7 +341,7 @@ async def login(email: str, password: str, session: AsyncSession = Depends(get_d
         resource_type="USER",
         ip_address=request.client.host,
     )
-    
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -364,7 +364,7 @@ async def get_plates(
 ):
     # Role is already validated by require_role dependency
     # Now apply row-level filters based on role
-    
+
     query = select(Plate)
     if role == UserRole.VIEWER:
         query = query.join(Stream).filter(Stream.viewer_user_ids.contains(user_id))
@@ -374,15 +374,15 @@ async def get_plates(
             (Stream.operator_user_ids.contains(user_id))
         )
     # admin: no filter
-    
+
     plates = await session.execute(query)
-    
+
     # Decrypt plate strings on read (for audit purposes)
     decrypted_plates = [
         {**p.dict(), "plate_string": decrypt_plate_string(p.plate_string_encrypted, settings.fernet_key)}
         for p in plates
     ]
-    
+
     # Log to audit_log
     await audit_log.create(
         user_id=user_id,
@@ -391,7 +391,7 @@ async def get_plates(
         details={"count": len(decrypted_plates), "filters": {...}},
         ip_address=request.client.host,
     )
-    
+
     return decrypted_plates
 ```
 
@@ -457,6 +457,6 @@ async def get_audit_log(session: AsyncSession = Depends(get_db_session)):
 
 ---
 
-**Document Status:** READY FOR INTEGRATION  
-**Last Updated:** 2026-05-28  
+**Document Status:** READY FOR INTEGRATION
+**Last Updated:** 2026-05-28
 **Next Review:** After integration tests pass

@@ -226,7 +226,7 @@ Monitored during deployment:
    ```bash
    # Run migration in staging
    bash db/scripts/migrate_stage.sh
-   
+
    # Verify data integrity
    ```
 
@@ -243,7 +243,7 @@ Monitored during deployment:
 1. **Check metrics:**
    ```bash
    bash scripts/check_metrics.sh
-   
+
    # Watch for:
    # - CPU >85%
    # - Memory >85%

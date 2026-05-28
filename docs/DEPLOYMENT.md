@@ -672,5 +672,5 @@ aws ecs update-service --cluster anpr-prod-ecs-cluster \
 
 ---
 
-**Last Updated:** 2026-05-28  
+**Last Updated:** 2026-05-28
 **Maintained by:** DevOps Team

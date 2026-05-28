@@ -314,7 +314,7 @@ EOF
 
 **Symptom**: Login works, but /me returns 401
 
-**Fix**: 
+**Fix**:
 ```bash
 # Ensure Bearer prefix
 Authorization: Bearer <token>
@@ -384,12 +384,12 @@ redis-cli FLUSHALL
 
 ## Success Criteria
 
-✅ All 11 tests pass  
-✅ E2E latency < 2 seconds  
-✅ No 5xx errors  
-✅ Celery tasks accepted (even if worker crashes on YOLO init)  
-✅ Database queries return correct data  
-✅ JWT tokens validate correctly  
+✅ All 11 tests pass
+✅ E2E latency < 2 seconds
+✅ No 5xx errors
+✅ Celery tasks accepted (even if worker crashes on YOLO init)
+✅ Database queries return correct data
+✅ JWT tokens validate correctly
 
 ---
 

@@ -8,4 +8,4 @@
   "p95_latency_ms": 231.44971905312556,
   "p99_latency_ms": 272.3494026668049,
   "passed_mAP_gate": false,
-  "passed_latency_gate": 
+  "passed_latency_gate":

@@ -6,15 +6,14 @@ import base64
 import json
 import logging
 import sys
-from typing import Optional
 
 import cv2
 import requests
 import websockets
 
 from ingest.base import FrameSource
-from ingest.webcam import WebcamSource
 from ingest.file import FileSource
+from ingest.webcam import WebcamSource
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,7 +34,7 @@ class ANPRDemo:
         self.api_url = api_url
         self.email = email
         self.password = password
-        self.token: Optional[str] = None
+        self.token: str | None = None
         self.session = requests.Session()
 
     async def login(self) -> bool:
@@ -51,14 +50,13 @@ class ANPRDemo:
                 self.session.headers.update({"Authorization": f"Bearer {self.token}"})
                 logger.info(f"Authenticated as {self.email}")
                 return True
-            else:
-                logger.error(f"Auth failed: {response.status_code} {response.text}")
-                return False
+            logger.error(f"Auth failed: {response.status_code} {response.text}")
+            return False
         except Exception as e:
             logger.error(f"Login error: {e}")
             return False
 
-    def ingest_frame(self, stream_id: str, frame_bytes: bytes, camera_id: str) -> Optional[str]:
+    def ingest_frame(self, stream_id: str, frame_bytes: bytes, camera_id: str) -> str | None:
         """Send frame to ingest endpoint."""
         try:
             frame_b64 = base64.b64encode(frame_bytes).decode()
@@ -73,9 +71,8 @@ class ANPRDemo:
             if response.status_code == 200:
                 task_id = response.json().get("task_id")
                 return task_id
-            else:
-                logger.warning(f"Ingest failed: {response.status_code}")
-                return None
+            logger.warning(f"Ingest failed: {response.status_code}")
+            return None
         except Exception as e:
             logger.error(f"Ingest error: {e}")
             return None
@@ -106,7 +103,7 @@ class ANPRDemo:
         source: FrameSource,
         stream_id: str = "demo-stream",
         camera_id: str = "demo-camera",
-        max_frames: Optional[int] = None,
+        max_frames: int | None = None,
     ) -> None:
         """Run full demo: ingest + listen."""
         # Auth
@@ -166,7 +163,7 @@ async def main():
     args = parser.parse_args()
 
     # Initialize source
-    source: Optional[FrameSource] = None
+    source: FrameSource | None = None
     if args.source == "webcam":
         source = WebcamSource()
     elif args.source == "file":

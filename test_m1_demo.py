@@ -7,7 +7,6 @@ Tests:
 """
 
 import time
-from typing import Optional
 
 import numpy as np
 
@@ -33,7 +32,7 @@ class MockFrameSource(FrameSource):
 
         # Generate a unique frame pattern based on frame number
         image = np.ones((480, 640, 3), dtype=np.uint8)
-        image[:, :, 0] = (self.count % 256)  # R channel: frame index
+        image[:, :, 0] = self.count % 256  # R channel: frame index
         image[:, :, 1] = 128  # G channel: constant
         image[:, :, 2] = 200  # B channel: constant
 
@@ -87,7 +86,7 @@ def run_demo():
     print(f"Frames read:         {scheduler.stats.frames_read}")
     print(f"Elapsed time:        {elapsed:.2f}s")
     print(f"Measured FPS:        {fps:.1f}")
-    print(f"Status:              ✓ PASS" if fps >= 10.0 else f"✗ FAIL (FPS < 10.0)")
+    print("Status:              ✓ PASS" if fps >= 10.0 else "✗ FAIL (FPS < 10.0)")
 
     # Test 2: Backpressure handling
     print("\n[Test 2] Backpressure Handling (Queue Saturation)")
@@ -104,7 +103,7 @@ def run_demo():
     print(f"Max queue depth:     {scheduler.max_queue}")
     print(f"Current queue depth: {queue_depth}")
     print(f"Frames dropped:      {frames_dropped}")
-    print(f"Status:              ✓ PASS" if frames_dropped > 0 else "✓ PASS (backpressure managed)")
+    print("Status:              ✓ PASS" if frames_dropped > 0 else "✓ PASS (backpressure managed)")
 
     # Test 3: Frame accuracy
     print("\n[Test 3] Frame Integrity")
@@ -126,22 +125,24 @@ def run_demo():
         sample_frame = frames[0]
         print(f"Frame dimensions:    {sample_frame.width}x{sample_frame.height}")
         print(f"Frame data type:     {sample_frame.image.dtype}")
-        print(f"Frame channels:      {sample_frame.image.shape[2] if len(sample_frame.image.shape) > 2 else 1}")
+        print(
+            f"Frame channels:      {sample_frame.image.shape[2] if len(sample_frame.image.shape) > 2 else 1}"
+        )
         print(f"Frames collected:    {len(frames)}")
-        print(f"Status:              ✓ PASS")
+        print("Status:              ✓ PASS")
     else:
-        print(f"Status:              ✗ FAIL (no frames captured)")
+        print("Status:              ✗ FAIL (no frames captured)")
 
     # Summary
     print("\n" + "=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"Camera(s) found:     N/A (mock source)")
-    print(f"Unit tests:          ✓ PASS (43 tests)")
-    print(f"Integration tests:   ✓ PASS (6 tests, scheduler)")
+    print("Camera(s) found:     N/A (mock source)")
+    print("Unit tests:          ✓ PASS (43 tests)")
+    print("Integration tests:   ✓ PASS (6 tests, scheduler)")
     print(f"Live demo FPS:       {fps:.1f} (target: ≥10 FPS)")
-    print(f"Backpressure:        ✓ Drops on saturation")
-    print(f"Overall:             ✓ M1 READY")
+    print("Backpressure:        ✓ Drops on saturation")
+    print("Overall:             ✓ M1 READY")
     print("=" * 70)
     return 0
 

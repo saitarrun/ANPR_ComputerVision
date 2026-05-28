@@ -1,327 +1,368 @@
-# ANPR Backend Deployment Checklist
+# Deployment Checklist
 
-## Pre-Deployment (24 Hours Before)
-
-### Code & Testing
-- [ ] All tests passing locally and in CI/CD
-- [ ] Code review completed (≥2 approvals)
-- [ ] No security vulnerabilities flagged by Trivy, pip-audit
-- [ ] Linting passes (Ruff, Mypy)
-- [ ] Changelog updated with feature/fix descriptions
-- [ ] CHANGELOG.md entries match the version being deployed
-
-### Database
-- [ ] Migration scripts tested in staging
-- [ ] Rollback scripts prepared and tested
-- [ ] Data validation queries prepared (before/after counts)
-- [ ] Backup scheduled for deployment window
-- [ ] RDS Multi-AZ enabled (prod)
-
-### Infrastructure
-- [ ] Terraform plan reviewed (terraform plan -var-file="prod.tfvars")
-- [ ] Security groups allow ALB → ECS traffic
-- [ ] RDS security group allows ECS → database traffic
-- [ ] ACM certificate is valid (check expiration)
-
-### Monitoring
-- [ ] CloudWatch dashboards created/updated
-- [ ] SNS topics configured for alerts
-- [ ] PagerDuty integration active
-- [ ] On-call engineer assigned
-- [ ] Alert thresholds documented (error rate, latency, CPU, memory)
-
-### Team Coordination
-- [ ] Deployment window scheduled (off-peak hours)
-- [ ] On-call engineer assigned
-- [ ] Team notified (Slack announcement)
-- [ ] Business stakeholders informed (ETA, expected impact)
-- [ ] Rollback procedure reviewed with team
+Use this checklist to set up the complete CI/CD pipeline for ANPR.
 
 ---
 
-## Deployment Day (Blue-Green)
+## Phase 1: Local Development (Day 1)
 
-### 2 Hours Before Deployment
-
-- [ ] Verify all team members are available
-- [ ] Confirm no critical issues in production
-- [ ] Check ECS cluster health: `aws ecs describe-clusters --clusters anpr-prod-ecs-cluster`
-- [ ] Verify RDS backup completed: `aws rds describe-db-instances --db-instance-identifier anpr-prod-db`
-- [ ] Check Celery worker queue is healthy: `celery -A workers.tasks inspect active_queues`
-- [ ] Verify Redis connection: `redis-cli -h <redis-endpoint> ping`
-
-### 30 Minutes Before Deployment
-
-- [ ] Post deployment announcement to Slack: "Deploying ANPR v1.0.0 to production (blue-green). ETA: 30-40 minutes. Impact: None expected."
-- [ ] Enable enhanced monitoring on dashboard
-- [ ] Open CloudWatch dashboard in browser (keep visible during deployment)
-- [ ] Prepare rollback runbook (print or have accessible)
-- [ ] Notify on-call engineer deployment is about to start
-
-### Deployment Initiation
-
-- [ ] Create git tag: `git tag v1.0.0 && git push origin v1.0.0`
-- [ ] Monitor GitHub Actions workflow: https://github.com/your-org/anpr/actions
-- [ ] Verify build completes successfully (green checkmark)
-- [ ] Verify security scanning passes (no critical vulnerabilities)
-
-### Staging Deployment (Automated)
-
-- [ ] Wait for deployment to staging (5-10 minutes)
-- [ ] Check staging is healthy: `curl https://anpr-stage.example.com/healthz`
-- [ ] Verify smoke tests pass (visible in GitHub Actions logs)
-- [ ] Spot-check staging logs for errors: `aws logs tail /ecs/anpr/stage --since 5m`
-
-### Manual Approval for Production
-
-- [ ] Review deployment plan in GitHub Actions
-- [ ] Approve production deployment (click "Approve and deploy")
-- [ ] Document approval in incident tracking: who, when, why
-- [ ] Confirm approval received (GitHub email notification)
-
-### Blue-Green Switch (Green Deployment)
-
-- [ ] Monitor green variant scaling up (3 tasks)
-- [ ] Wait for green tasks to reach RUNNING state: `watch aws ecs describe-services --cluster anpr-prod-ecs-cluster --services anpr-prod-ecs-service-green`
-- [ ] Verify all 3 green tasks pass health checks (2+ consecutive healthy checks)
-- [ ] Run smoke tests on green: `bash scripts/smoke_tests.sh http://green.anpr-prod.internal:8000`
-  - [ ] Health endpoint responds 200
-  - [ ] Regions endpoint responds 200
-  - [ ] Cameras endpoint responds 200
-  - [ ] All latencies <1000ms
-- [ ] Check green service logs for errors: `aws logs tail /ecs/anpr/prod --filter-pattern "ERROR" --since 5m`
-
-### Traffic Switch
-
-- [ ] Record current active variant (blue): `aws elbv2 describe-listeners --listener-arn <LISTENER_ARN> | grep TargetGroupArn`
-- [ ] Switch ALB to green: Automated via GitHub Actions
-- [ ] Verify traffic switched: `curl https://anpr.example.com/api/v1/regions` (should now hit green)
-- [ ] Timestamp traffic switch: Record time in deployment log
-
-### Post-Switch Monitoring (30 Minutes)
-
-- [ ] Minute 0-5: Check error rate (target: <1%)
-  - [ ] `aws cloudwatch get-metric-statistics --namespace ANPR/API --metric-name ErrorRate`
-  - [ ] Check application logs for errors: `aws logs tail /ecs/anpr/prod --since 5m`
-  - [ ] Verify database connections are stable: `SELECT count(*) FROM pg_stat_activity`
-  
-- [ ] Minute 5-10: Monitor latency (target: p99 <1s)
-  - [ ] `aws cloudwatch get-metric-statistics --namespace ANPR/API --metric-name RequestLatencyP99`
-  - [ ] Run manual latency test: `time curl https://anpr.example.com/api/v1/detections`
-  
-- [ ] Minute 10-15: Check resource utilization (target: CPU <70%, Memory <70%)
-  - [ ] `bash scripts/check_metrics.sh`
-  - [ ] Verify no OOMKilled tasks: `aws ecs describe-tasks --cluster anpr-prod-ecs-cluster`
-  
-- [ ] Minute 15-30: Verify end-to-end workflows
-  - [ ] Create test detection: curl -X POST with JWT token
-  - [ ] Retrieve detections: curl -X GET with JWT token
-  - [ ] Verify database writes are working: SELECT count(*) FROM detections
-
-- [ ] Minute 30: Final validation
-  - [ ] All SLOs green (error rate <5%, latency p99 <1s)
-  - [ ] No critical errors in logs
-  - [ ] All 3 green tasks still RUNNING and healthy
-  - [ ] Database connectivity confirmed
-  - [ ] Celery workers processing normally
-
-### Complete Deployment
-
-- [ ] Scale down blue (old variant) to 0: Automated via GitHub Actions
-- [ ] Record deployment completion time
-- [ ] Post success message to Slack: "✅ ANPR v1.0.0 deployed to production. No issues detected. Blue-green deployment complete. Blue is now standby."
-- [ ] Update deployment log in incident tracking
-
-### Post-Deployment (Next 4 Hours)
-
-- [ ] Monitor error rate every 15 minutes (first hour)
-- [ ] Monitor latency p99 every 15 minutes (first hour)
-- [ ] Check for any user-reported issues on Slack
-- [ ] Verify background jobs are running normally (Celery)
-- [ ] Check database query performance hasn't degraded
-- [ ] Monitor disk usage on RDS (should be stable)
+- [ ] Verify tests pass locally: `uv run pytest tests/ -v --cov`
+- [ ] Verify linting passes: `uv run ruff check .`
+- [ ] Verify type checking passes: `uv run mypy anpr_core api workers db`
+- [ ] Build Docker image locally: `docker build -f Dockerfile.api -t anpr-api:test .`
+- [ ] Run docker-compose locally: `docker-compose up -d && curl http://localhost:8000/healthz`
 
 ---
 
-## Canary Deployment Checklist (Optional)
+## Phase 2: GitHub Actions Setup (Day 1–2)
 
-### Pre-Canary Validation (Same as Blue-Green)
+### 2A: Repository Secrets
 
-- [ ] (All pre-deployment checks from blue-green apply)
+Set up in **Settings → Secrets and variables → Actions**:
 
-### Canary Rollout
+- [ ] `SLACK_WEBHOOK_DEPLOY` = Slack webhook URL for notifications
+  - Create at: https://api.slack.com/apps → Your App → Incoming Webhooks
+- [ ] Commit `.github/workflows/ci.yml` to repo
+- [ ] Commit `.github/workflows/deploy-staging.yml` to repo
+- [ ] Commit `.github/workflows/deploy-prod.yml` to repo
+- [ ] Commit `.github/workflows/rollback-prod.yml` to repo
 
-- [ ] Deploy canary service with 1 replica (isolated ECS task)
-- [ ] Health checks pass (2+ consecutive successful)
-- [ ] Route 5% of traffic to canary via weighted ALB target group
-  - [ ] 95% → blue
-  - [ ] 5% → canary
-- [ ] Monitor canary for 5 minutes:
-  - [ ] Error rate on canary <10% (alert threshold)
-  - [ ] Latency p99 <1.5s (alert threshold)
-  - [ ] CPU <80%, Memory <80%
-- [ ] If issues detected, auto-rollback to 0% canary traffic
+### 2B: Test CI Pipeline
 
-### Gradual Rollout (If Canary Healthy)
-
-- [ ] Increase to 25% traffic (25% → canary, 75% → blue)
-- [ ] Monitor for 5 minutes with same thresholds
-- [ ] Increase to 50% traffic (50% → canary, 50% → blue)
-- [ ] Monitor for 5 minutes
-- [ ] Increase to 100% traffic (100% → canary)
-- [ ] Remove canary service (scale to 0)
+- [ ] Create test PR: `git checkout -b test/ci && echo "# test" >> README.md && git push`
+- [ ] Watch CI run: **Actions → PR workflow**
+- [ ] Verify all jobs pass: lint, test, security, build-image, smoke-test
+- [ ] Merge PR to main
 
 ---
 
-## Rollback Checklist (If Needed)
+## Phase 3: Staging Server Setup (Day 2–3)
 
-### Detection
+### 3A: Provision Server
 
-- [ ] Error rate >5% for 2+ consecutive minutes
-  - [ ] Revert ALB traffic to blue
-  - [ ] Scale down green to 0
-  - [ ] Document issue in GitHub issue
-  
-- [ ] Latency p99 >1s for 5+ consecutive minutes
-  - [ ] Page on-call engineer
-  - [ ] Assess whether issue is deployment-related or infrastructure
-  - [ ] If deployment-related, initiate rollback
-  
-- [ ] Database error or corruption detected
-  - [ ] Revert ALB traffic to blue immediately
-  - [ ] Run database rollback script
-  - [ ] Verify data integrity
-  - [ ] Document incident
+- [ ] Create Ubuntu 20.04+ VM on your infrastructure
+- [ ] Assign public IP address
+- [ ] Create DNS A record: `staging-api.anpr.internal` → IP
+- [ ] SSH access from local machine
 
-### Rollback Steps
+### 3B: SSH Key Configuration
 
-- [ ] Get current active variant: `aws elbv2 describe-listeners --listener-arn <LISTENER_ARN>`
-- [ ] Identify previous variant (blue if currently green)
-- [ ] Run rollback script: `bash scripts/rollback_blue_green.sh prod`
-- [ ] Verify traffic switched back: `curl https://anpr.example.com/healthz`
-- [ ] Monitor for 5 minutes:
-  - [ ] Error rate drops <5%
-  - [ ] Latency p99 returns to <1s
-  - [ ] No critical errors in logs
-- [ ] Post rollback message to Slack with incident details
-- [ ] Create incident post-mortem issue in GitHub
-
-### Post-Rollback Investigation
-
-- [ ] Collect logs from failed green variant: `aws logs get-log-events --log-group-name /ecs/anpr/prod --log-stream-name anpr-prod-ecs-service-green-*`
-- [ ] Identify root cause
-- [ ] Identify what tests missed this issue
-- [ ] Plan fix and updated test cases
-- [ ] Schedule re-deployment with fixes
-
----
-
-## Testing & Validation
-
-### Smoke Tests (Required)
-
+On **local machine**:
 ```bash
-bash scripts/smoke_tests.sh https://anpr.example.com
-
-# Verify output:
-# ✓ Health check endpoint: 200
-# ✓ Latency: <1000ms
-# ✓ List regions: 200
-# ✓ List cameras: 200
-# ✓ Auth required endpoint: 401
-# ✓ Invalid endpoint: 404
+ssh-keygen -t ed25519 -f ~/.ssh/anpr-staging-deploy -N ""
 ```
 
-### Integration Tests (Recommended)
+- [ ] Public key uploaded to server: `~/.ssh/authorized_keys`
+- [ ] Test passwordless login: `ssh -i ~/.ssh/anpr-staging-deploy deploy@staging-server echo OK`
+- [ ] Add secret to GitHub: `STAGING_DEPLOY_HOST`, `STAGING_DEPLOY_USER`, `STAGING_DEPLOY_KEY`
 
+### 3C: Server Dependencies
+
+SSH into server and run:
 ```bash
-uv run pytest tests/integration -q
-
-# Expected: All tests passing
+bash ops/DEPLOYMENT_SERVER_SETUP.md  # Follow installation steps
 ```
 
-### Manual API Tests (Recommended)
+- [ ] Docker installed and daemon running
+- [ ] Docker Compose installed
+- [ ] PostgreSQL client installed
+- [ ] Nginx installed and running
+- [ ] SSL certificate obtained (Let's Encrypt)
+- [ ] GitHub Container Registry credentials configured
 
+### 3D: Deploy Directory
+
+- [ ] `/opt/anpr` directory created and owned by `deploy` user
+- [ ] `.env.staging` file created with secrets
+- [ ] `docker-compose.staging.yml` in repo
+- [ ] `deploy-staging.sh` script created and executable
+
+### 3E: Test Staging Deployment
+
+Merge test PR to main:
 ```bash
-# Get auth token
-TOKEN=$(curl -X POST https://anpr.example.com/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@anpr.local","password":"password"}' | jq -r .access_token)
-
-# List regions
-curl -H "Authorization: Bearer $TOKEN" \
-  https://anpr.example.com/api/v1/regions | jq .
-
-# Create detection (test write)
-curl -X POST -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"plate":"ABC123","confidence":0.95}' \
-  https://anpr.example.com/api/v1/detections | jq .
+git checkout -b test/deploy
+echo "# Deploy test" >> README.md
+git push origin test/deploy
+# Open PR, merge to main
 ```
 
-### Load Test (For High-Risk Deployments)
+- [ ] GitHub Actions triggers `deploy-staging.yml` automatically
+- [ ] Workflow completes successfully
+- [ ] Verify: `curl https://staging-api.anpr.internal/healthz` returns 200
+- [ ] Check logs: `ssh deploy@staging-server docker-compose -f /opt/anpr/docker-compose.staging.yml logs api`
+
+---
+
+## Phase 4: Production Server Setup (Day 3–4)
+
+### 4A: Provision Server
+
+- [ ] Create Ubuntu 20.04+ VM on production infrastructure
+- [ ] Assign public IP address
+- [ ] Create DNS A record: `api.anpr.com` (or your domain) → IP
+- [ ] SSH access from local machine
+
+### 4B: SSH Key Configuration
+
+On **local machine**:
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/anpr-prod-deploy -N ""
+```
+
+- [ ] Public key uploaded to server
+- [ ] Test passwordless login
+- [ ] Add secret to GitHub: `PROD_DEPLOY_HOST`, `PROD_DEPLOY_USER`, `PROD_DEPLOY_KEY`
+
+### 4C: Server Dependencies
+
+SSH into server and repeat Phase 3C steps.
+
+### 4D: Deploy Directory
+
+- [ ] `/opt/anpr` directory created
+- [ ] `.env.prod` file created with **strong** secrets:
+  - [ ] `POSTGRES_PASSWORD`: 32-char random
+  - [ ] `REDIS_PASSWORD`: 32-char random
+  - [ ] `JWT_SECRET`: 32-char random
+  - [ ] `FERNET_KEY`: Generated via Cryptography library
+  - [ ] `SECRET_KEY`: 32-char random
+- [ ] Store secrets securely (password manager, HashiCorp Vault, etc.)
+- [ ] `docker-compose.prod.yml` in repo
+- [ ] `docker-compose.prod.green.yml` (copy of prod for blue-green) in repo
+
+### 4E: Load Balancer Configuration
+
+For blue-green deployments:
+
+- [ ] Primary load balancer configured to route to blue (port 8000)
+- [ ] `switch-traffic-to-green.sh` script in place
+- [ ] `switch-traffic-to-blue.sh` script in place
+- [ ] Tested traffic switching manually
+
+---
+
+## Phase 5: Monitoring & Alerting (Day 4–5)
+
+### 5A: Prometheus (Optional but Recommended)
+
+- [ ] Prometheus container added to `docker-compose.prod.yml`
+- [ ] Node Exporter installed on server
+- [ ] Prometheus scrapes metrics from containers
+- [ ] Verify: `curl http://staging-server:9090/graph`
+
+### 5B: Grafana (Optional)
+
+- [ ] Grafana container deployed
+- [ ] Connected to Prometheus data source
+- [ ] Created dashboards: API health, database, workers
+- [ ] Created alert rules:
+  - [ ] Error rate > 2% → Page on-call
+  - [ ] Latency p99 > 500ms → Page on-call
+  - [ ] Database connections > 90 → Alert
+
+### 5C: Slack Notifications
+
+- [ ] Deployment notifications working (test with staging deployment)
+- [ ] Alert notifications working (trigger test alert)
+
+---
+
+## Phase 6: Release & Deploy to Production (Day 5–6)
+
+### 6A: Create First Release
 
 ```bash
-ab -n 100 -c 10 -H "Authorization: Bearer $TOKEN" \
-  https://anpr.example.com/api/v1/regions
+# Make sure all changes are on main
+git checkout main
+git pull origin main
 
-# Expected: <100ms latency, 0% failure rate
+# Create semantic version tag
+git tag -a v0.1.0 -m "First production release"
+git push origin v0.1.0
+```
+
+- [ ] Git tag created with semantic version (v0.1.0)
+- [ ] Tag pushed to GitHub
+
+### 6B: GitHub Environment Protection (Production)
+
+Set up in **Settings → Environments → production**:
+
+- [ ] Require manual approval (assign to 1+ team member)
+- [ ] Protection rules: only `main` branch can deploy
+- [ ] Environment secrets: none needed (uses repo secrets)
+
+### 6C: Monitor Deployment
+
+- [ ] GitHub Actions workflow `deploy-prod.yml` triggers
+- [ ] Approval requested (check email/PagerDuty)
+- [ ] Approval granted
+- [ ] Blue-green deployment executes
+- [ ] Monitor logs in real-time
+- [ ] Post-deployment health checks pass
+
+### 6D: Production Verification
+
+- [ ] Health check: `curl https://api.anpr.com/healthz`
+- [ ] Status endpoint: `curl https://api.anpr.com/api/v1/status`
+- [ ] Metrics visible in Grafana
+- [ ] Slack notification received
+- [ ] Team notified via email/Slack
+
+---
+
+## Phase 7: Rollback Testing (Day 6)
+
+### 7A: Prepare for Rollback
+
+- [ ] Read `ops/RUNBOOK_ROLLBACK.md` thoroughly
+- [ ] Understand blue-green switching mechanism
+- [ ] Know how to rollback via GitHub Actions and manual process
+
+### 7B: Test Rollback (Staging)
+
+On staging server:
+
+```bash
+# Create "failure" in current version (e.g., break health check endpoint)
+# Then trigger rollback workflow
+```
+
+- [ ] Rollback workflow triggered successfully
+- [ ] Service recovered to previous version
+- [ ] Health checks pass after rollback
+
+### 7C: Production Rollback Preparation
+
+- [ ] Document current production version (`v0.1.0`)
+- [ ] Note location of rollback runbook for on-call team
+- [ ] Share runbook with team
+
+---
+
+## Phase 8: Documentation & Training (Day 6–7)
+
+- [ ] Share `CICD_SETUP.md` with team
+- [ ] Share `RUNBOOK_ROLLBACK.md` with on-call engineer
+- [ ] Share `DEPLOYMENT_SERVER_SETUP.md` with infrastructure team
+- [ ] Walk through GitHub Actions workflow with team
+- [ ] Practice rollback scenario with on-call engineer
+- [ ] Create team Slack channel for deployment notifications
+
+---
+
+## Phase 9: Ongoing Maintenance
+
+### Weekly
+- [ ] Review deployment logs for errors
+- [ ] Check security scan results in GitHub
+- [ ] Verify backups are working
+
+### Monthly
+- [ ] Rotate secrets (SSH keys, API keys)
+- [ ] Update base Docker images
+- [ ] Test disaster recovery (restore from backup)
+- [ ] Review and optimize Docker image size
+
+### Quarterly
+- [ ] Review and update CI/CD documentation
+- [ ] Assess pipeline performance (build times)
+- [ ] Hold blameless post-mortem if incidents occurred
+- [ ] Plan upgrades (Docker, Postgres, etc.)
+
+---
+
+## Quick Links
+
+| Document | Purpose |
+|----------|---------|
+| `CICD_SETUP.md` | Detailed pipeline documentation |
+| `DEPLOYMENT_SERVER_SETUP.md` | Server provisioning guide |
+| `RUNBOOK_ROLLBACK.md` | How to rollback production |
+| `.github/workflows/ci.yml` | CI pipeline definition |
+| `.github/workflows/deploy-staging.yml` | Staging deployment |
+| `.github/workflows/deploy-prod.yml` | Production deployment |
+| `.github/workflows/rollback-prod.yml` | Rollback workflow |
+| `docker-compose.staging.yml` | Staging containers |
+| `docker-compose.prod.yml` | Production containers |
+
+---
+
+## Common Issues & Fixes
+
+### "Permission denied (publickey)" during deployment
+
+**Fix:** SSH key not configured correctly
+```bash
+ssh -i ~/.ssh/anpr-staging-deploy -vvv deploy@staging-server
+# Check ~/.ssh/authorized_keys on server
+```
+
+### "Repository not found" error in GitHub Actions
+
+**Fix:** GITHUB_TOKEN not being used correctly
+```yaml
+- uses: docker/login-action@v3
+  with:
+    registry: ghcr.io
+    username: ${{ github.actor }}
+    password: ${{ secrets.GITHUB_TOKEN }}  # Built-in, no additional secret needed
+```
+
+### "Connection refused" on localhost:8000 after deployment
+
+**Fix:** Container not started or health check failed
+```bash
+docker-compose -f docker-compose.staging.yml logs api
+docker-compose -f docker-compose.staging.yml ps
+```
+
+### "Database migrations failed"
+
+**Fix:** Schema mismatch between app and DB
+```bash
+# Check migration status
+docker-compose exec api alembic current
+# See pending migrations
+docker-compose exec api alembic heads
 ```
 
 ---
 
-## Emergency Contacts
+## Success Criteria
 
-| Role | Name | Phone | Slack |
-|------|------|-------|-------|
-| On-Call Engineer | @on-call | (xxx) xxx-xxxx | #oncall |
-| DevOps Lead | Name | (xxx) xxx-xxxx | @devops-lead |
-| Engineering Manager | Name | (xxx) xxx-xxxx | @manager |
-| CTO | Name | (xxx) xxx-xxxx | @cto |
+You've successfully set up the CI/CD pipeline when:
 
----
-
-## Post-Deployment Sign-Off
-
-- [ ] All checks completed successfully
-- [ ] No issues detected in first hour
-- [ ] On-call engineer confirms stability
-- [ ] Deployment documented in incident log
-- [ ] Metrics baseline established for this version
-- [ ] Engineering team notified of successful deployment
-
-**Deployed by:** ________________  
-**Date/Time:** ________________  
-**Version:** ________________  
-**Approval:** ________________  
+1. ✅ PR merge to main → Staging deployment (< 5 min)
+2. ✅ Git tag v*.*.* → Production deployment (< 10 min)
+3. ✅ Health checks pass at every stage
+4. ✅ Rollback completes in < 5 minutes
+5. ✅ Team receives Slack notifications
+6. ✅ Zero manual steps required for deployment
+7. ✅ On-call can rollback without dev intervention
+8. ✅ All secrets stored securely (no hardcoding)
+9. ✅ Tests run on every commit
+10. ✅ Linting and type-checking automated
 
 ---
 
-## Quick Reference Commands
+## After Deployment
 
-```bash
-# Check deployment status
-aws ecs describe-services --cluster anpr-prod-ecs-cluster --services anpr-prod-ecs-service-green
+Once in production, set up:
 
-# Get logs from failed deployment
-aws logs tail /ecs/anpr/prod --filter-pattern "ERROR" --since 30m
+1. **Monitoring:** Prometheus + Grafana dashboards
+2. **Alerting:** Error rate, latency, database health
+3. **Logging:** Centralized logs (CloudWatch, ELK, Datadog)
+4. **Backup:** Automated daily backups with recovery testing
+5. **On-call:** Rotation schedule with runbooks
+6. **Incident Response:** Post-mortem process and playbooks
+7. **Cost Tracking:** Monitor resource usage and optimize
 
-# Check which variant is active
-aws elbv2 describe-listeners --listener-arn <LISTENER_ARN> | grep TargetGroupArn
-
-# Manually switch traffic (emergency)
-aws elbv2 modify-listener --listener-arn <LISTENER_ARN> \
-  --default-actions Type=forward,TargetGroupArn=<BLUE_TG_ARN>
-
-# Check task health
-aws ecs describe-tasks --cluster anpr-prod-ecs-cluster --tasks <TASK_ARN>
-
-# View recent events
-aws ecs describe-services --cluster anpr-prod-ecs-cluster --services anpr-prod-ecs-service-green \
-  --query 'services[0].events[:5]'
-```
+See `MONITORING.md` (to be created) for setup details.
 
 ---
 
-**Last Updated:** 2026-05-28  
-**Created by:** DevOps Team
+## Questions?
+
+Reach out to the DevOps team or check the related documentation files.

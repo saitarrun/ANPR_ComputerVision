@@ -297,5 +297,5 @@ Unhealthy Threshold: 3 consecutive failures
 
 ---
 
-**Last Updated:** 2026-05-28  
+**Last Updated:** 2026-05-28
 **Status:** Production-ready

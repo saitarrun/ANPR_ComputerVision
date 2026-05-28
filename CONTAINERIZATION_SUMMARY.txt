@@ -14,7 +14,7 @@ DELIVERABLES
    File: /Dockerfile
    Type: Multi-stage build
    Size: ~2KB source, ~360MB final image
-   
+
    Features:
    - Stage 1 (Builder): Compiles dependencies in full environment
    - Stage 2 (Runtime): Minimal image with only runtime dependencies
@@ -26,14 +26,14 @@ DELIVERABLES
 2. DOCKER COMPOSE - DEVELOPMENT
    File: /docker-compose.yml
    Type: Full development stack
-   
+
    Services:
    - api (FastAPI, port 8000)
    - celery-worker (Async tasks, concurrency=2)
    - postgres (PostgreSQL 16-alpine, port 5432)
    - redis (Redis 7-alpine, port 6379)
    - minio (S3-compatible storage, ports 9000/9001)
-   
+
    Features:
    - Code hot-reload via volume mounts
    - Health checks for all services
@@ -45,7 +45,7 @@ DELIVERABLES
 3. DOCKER COMPOSE - PRODUCTION OVERRIDES
    File: /docker-compose.prod.yml
    Type: Production configuration patch
-   
+
    Changes:
    - Resource limits (CPU/memory per service)
    - Stricter health check retries
@@ -53,7 +53,7 @@ DELIVERABLES
    - Production-optimized database settings
    - MinIO removed (use AWS S3)
    - Structured JSON logging
-   
+
    Resource Limits:
    - API: 2.0 CPU, 2GB RAM (reserve: 1.0 CPU, 1GB RAM)
    - Celery: 2.0 CPU, 2GB RAM (reserve: 1.0 CPU, 1GB RAM)
@@ -63,7 +63,7 @@ DELIVERABLES
 4. BUILD CONTEXT OPTIMIZATION
    File: /.dockerignore
    Type: Build context filter
-   
+
    Excludes:
    - Version control (.git, .gitignore)
    - IDE files (.vscode, .idea)
@@ -72,7 +72,7 @@ DELIVERABLES
    - Documentation (docs/, .github/)
    - Test files (pytest.ini, conftest.py)
    - CI/CD files (docker-compose.yml, Makefile)
-   
+
    Result: ~13KB build context (vs 200MB+ if unfiltered)
 
 5. CI/CD BUILD SCRIPT
@@ -80,7 +80,7 @@ DELIVERABLES
    Type: Bash automation script
    Size: ~2.2KB
    Permissions: executable (755)
-   
+
    Features:
    - Automatic git commit hash tagging
    - Semantic version tagging (--tag option)
@@ -88,7 +88,7 @@ DELIVERABLES
    - Push capability (--push flag)
    - Dry-run mode (--dry-run for validation)
    - Clean output (build config summary)
-   
+
    Usage:
    - ./scripts/docker-build.sh
    - ./scripts/docker-build.sh --tag v0.1.0 --push
@@ -98,18 +98,18 @@ DELIVERABLES
    File: /.github/workflows/docker-build.yml
    Type: Automated CI/CD pipeline
    Size: ~2.1KB
-   
+
    Stages:
    1. Build: Compile image with BuildKit cache
    2. Push: Push to GitHub Container Registry (ghcr.io)
    3. Scan: Trivy vulnerability scanning
    4. Attest: Record build metadata
-   
+
    Triggers:
    - Push to main → Build + push
    - Push to develop → Build + push
    - Tag v* (releases) → Build + push + scan
-   
+
    Outputs:
    - Image: ghcr.io/{org}/anpr-backend:{tag}
    - Vulnerabilities: GitHub Security tab
@@ -119,7 +119,7 @@ DELIVERABLES
    File: /Makefile
    Type: Task automation
    Size: ~5.9KB
-   
+
    Key Commands:
    - make setup              Initialize environment (setup + docker-up + db-migrate)
    - make docker-up          Start development stack
@@ -135,14 +135,14 @@ DELIVERABLES
    - make docker-db-shell    Open psql in PostgreSQL
    - make image-build        Build Docker image locally
    - make image-build-push   Build and push to registry
-   
+
    Total Commands: 25+ development & operational tasks
 
 8. ENVIRONMENT CONFIGURATION
    File: /.env.local
    Type: Local development template
    Size: ~1.3KB
-   
+
    Purpose: Quick-start secrets template (NEVER commit)
    Contents:
    - App config (env, log level, ports)
@@ -152,14 +152,14 @@ DELIVERABLES
    - Storage (S3/MinIO credentials)
    - Celery (broker/backend URLs)
    - Pipeline (confidence thresholds, FPS)
-   
+
    Security:
    - Placeholders marked "change_me_now"
    - Excluded from .gitignore
    - Documented secret generation commands
 
 9. COMPREHENSIVE DOCUMENTATION
-   
+
    a) DOCKER.md (8.6 KB)
       - Quick start (3 commands)
       - Development workflow (code hot-reload)
@@ -171,7 +171,7 @@ DELIVERABLES
       - Troubleshooting guide
       - Security best practices
       - Useful commands reference
-   
+
    b) CONTAINERIZATION.md (11 KB)
       - Architecture overview
       - Design principles (multi-stage, security, DX, reproducibility)
@@ -218,7 +218,7 @@ HEALTH CHECK STRATEGY:
     - Always succeeds if container alive
     - Used by: Docker restart policies
     - Interval: 30s, Timeout: 10s, Retries: 3
-  
+
   Readiness (/readyz):
     - Checks database connectivity
     - Used by: Load balancers, K8s readiness probes
@@ -241,10 +241,10 @@ USAGE GUIDE
 LOCAL DEVELOPMENT (First Time):
   1. make setup
      (Creates .env.local, starts stack, runs migrations, seeds database)
-  
+
   2. curl http://localhost:8000/docs
      (Open API documentation in browser)
-  
+
   3. make docker-logs-api
      (Follow application logs)
 
@@ -271,17 +271,17 @@ TESTING & VALIDATION:
 PRODUCTION BUILD:
   - ./scripts/docker-build.sh
     (Builds image, tags with commit hash, local only)
-  
+
   - ./scripts/docker-build.sh --tag v0.1.0 --push
     (Builds, tags v0.1.0 & latest, pushes to docker.io)
-  
+
   - ./scripts/docker-build.sh --registry 123456789.dkr.ecr.us-east-1.amazonaws.com --tag v0.1.0 --push
     (Builds, tags, pushes to AWS ECR)
 
 PRODUCTION DEPLOYMENT:
   - docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
     (Launches production stack with resource limits, health checks)
-  
+
   - aws secretsmanager get-secret-value --secret-id anpr/prod/env | jq -r '.SecretString' > /tmp/prod.env
     docker-compose --env-file /tmp/prod.env up -d
     (Deploy with secrets from AWS Secrets Manager)
@@ -405,27 +405,27 @@ KNOWN LIMITATIONS & FUTURE WORK
 1. Kubernetes Support
    Current: Docker Compose only
    Future: Generate K8s manifests (Kompose, Helm charts)
-   
+
 2. Monitoring & Observability
    Current: Health checks only
    Future: Prometheus metrics, OpenTelemetry tracing, ELK logging
-   
+
 3. Secret Rotation
    Current: Secrets injected via env vars
    Future: Integrate HashiCorp Vault or AWS Secrets Manager auto-rotation
-   
+
 4. Networking
    Current: Single internal network
    Future: Multi-tier networks (frontend, backend, data), network policies
-   
+
 5. Load Balancing
    Current: Single API instance
    Future: Multiple replicas with load balancer (nginx, ALB)
-   
+
 6. Database Backup & Recovery
    Current: Volumes persist; no automated backup
    Future: Automated daily snapshots, cross-region replication
-   
+
 7. Blue-Green Deployment
    Current: Manual (stop old, start new)
    Future: Automated orchestration (ECS, EKS, Docker Swarm)

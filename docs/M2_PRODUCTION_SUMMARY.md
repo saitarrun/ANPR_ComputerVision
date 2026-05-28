@@ -31,7 +31,7 @@
 
 ### Model Chain
 ```
-Frame (bytes) 
+Frame (bytes)
   ↓ [M2 Detector: YOLOv8s]
   ├─ Bboxes (x1, y1, x2, y2, conf)
   ↓ [M3 OCR: Placeholder]
@@ -205,6 +205,6 @@ result = task.get()
 
 ---
 
-**Delivered:** 2026-05-27  
-**Status:** Production-ready, baseline validates pipeline  
+**Delivered:** 2026-05-27
+**Status:** Production-ready, baseline validates pipeline
 **Next:** CCPD fine-tuning for accuracy gates (parallel work)
