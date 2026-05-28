@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ReviewQueueResponse } from '../lib/api';
@@ -197,10 +198,10 @@ export function ReviewQueuePage() {
       ) : (
         <div className="review-grid">
           {items.map((item) => {
-            const blob = item.detection_blob || {};
-            const confidence = blob.confidence || 0;
-            const plateName = blob.plate_string || 'Unknown';
-            const ocrBackend = blob.ocr_backend || '-';
+            const blob = (item.detection_blob || {}) as Record<string, unknown>;
+            const confidence = (blob.confidence as number) || 0;
+            const plateName = (blob.plate_string as string) || 'Unknown';
+            const ocrBackend = (blob.ocr_backend as string) || '-';
 
             return (
               <div
@@ -218,9 +219,9 @@ export function ReviewQueuePage() {
                 </div>
 
                 <div className="card-image">
-                  {blob.crop_url ? (
+                  {(blob.crop_url as string) ? (
                     <img
-                      src={blob.crop_url}
+                      src={blob.crop_url as string}
                       alt={plateName}
                       className="plate-crop"
                     />

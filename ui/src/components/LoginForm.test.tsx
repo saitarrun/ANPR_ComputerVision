@@ -23,11 +23,11 @@ describe('LoginForm', () => {
   });
 
   it('renders login form with email and password inputs', () => {
-    (useAuthStore as unknown as typeof useAuthStore).mockReturnValue({
+    vi.mocked(useAuthStore).mockReturnValue({
       login: vi.fn(),
       isLoading: false,
       error: null,
-    } satisfies MockAuthStore);
+    } satisfies MockAuthStore as unknown as ReturnType<typeof useAuthStore>);
 
     render(<LoginForm />);
     expect(screen.getByTestId('email-input')).toBeDefined();
@@ -36,22 +36,22 @@ describe('LoginForm', () => {
   });
 
   it('displays error message when login fails', () => {
-    (useAuthStore as unknown as typeof useAuthStore).mockReturnValue({
+    vi.mocked(useAuthStore).mockReturnValue({
       login: vi.fn(),
       isLoading: false,
       error: 'Invalid credentials',
-    } satisfies MockAuthStore);
+    } satisfies MockAuthStore as unknown as ReturnType<typeof useAuthStore>);
 
     render(<LoginForm />);
     expect(screen.getByText('Invalid credentials')).toBeDefined();
   });
 
   it('disables inputs while loading', () => {
-    (useAuthStore as unknown as typeof useAuthStore).mockReturnValue({
+    vi.mocked(useAuthStore).mockReturnValue({
       login: vi.fn(),
       isLoading: true,
       error: null,
-    } satisfies MockAuthStore);
+    } satisfies MockAuthStore as unknown as ReturnType<typeof useAuthStore>);
 
     render(<LoginForm />);
     const emailInput = screen.getByTestId('email-input') as HTMLInputElement;

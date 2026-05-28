@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useLayoutEffect, useState, useRef } from 'react';
 import { useAlertStore } from '../stores/alertStore';
 import '../styles/AlertNotification.css';
 
@@ -7,9 +7,10 @@ export function AlertNotification() {
   const [visible, setVisible] = useState<string | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (alerts.length > 0) {
       const latestAlert = alerts[0];
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVisible(latestAlert.id);
 
       if (timerRef.current) clearTimeout(timerRef.current);

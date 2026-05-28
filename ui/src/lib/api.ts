@@ -127,7 +127,7 @@ export interface ReviewQueueResponse {
   detection_id: string;
   status: 'pending' | 'approved' | 'rejected' | 'flagged';
   reviewer_id?: string;
-  detection_blob: Record<string, any>;
+  detection_blob: Record<string, unknown>;
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -140,7 +140,7 @@ export interface AuditLogResponse {
   resource_type: string;
   resource_id: string;
   ip_address: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   created_at: string;
 }
 

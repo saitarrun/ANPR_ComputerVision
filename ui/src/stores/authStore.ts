@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import type { UserResponse } from '../lib/api';
 import { authAPI } from '../lib/api';

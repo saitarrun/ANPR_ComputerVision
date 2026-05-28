@@ -1,1 +1,2 @@
-- [M6 Task 7 Security Fixes](m6_task7_security_fixes.md) — Critical #4, High #10, #12 completed
+- [M6 Task 7 Security Fixes](m6_task7_security_fixes.md) — Critical #4, High #10, #12 + Medium #1-6 all completed
+- [M6 Security Fixes Completed](m6_security_fixes_completed.md) — HIGH-4, #7, #8: base image pinning, Cosign signing, OIDC verified

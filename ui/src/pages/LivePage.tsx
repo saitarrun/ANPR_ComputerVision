@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useLayoutEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { RegionResponse, CameraResponse } from '../lib/api';
 import { regionsAPI, camerasAPI, getWSUrl } from '../lib/api';
@@ -37,7 +37,7 @@ export const LivePage = () => {
   });
 
   // Initialize WebSocket when camera is selected
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!selectedCameraId || !user?.id) return;
 
     const token = localStorage.getItem('access_token');
@@ -46,6 +46,7 @@ export const LivePage = () => {
     const streamId = `camera-${selectedCameraId}`;
     const wsUrl = getWSUrl(streamId, token);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setWsStatus('connecting');
     setConnected(false);
     const ws = new WebSocket(wsUrl);
