@@ -13,8 +13,8 @@ detector:
 
   # Training
   epochs: 100
-  batch_size: 32
-  device: auto  # cuda:0, cpu, mps
+  batch_size: 16
+  device: cpu  # cuda:0, cpu, mps
   optimizer: SGD
 
   # Learning rate schedule

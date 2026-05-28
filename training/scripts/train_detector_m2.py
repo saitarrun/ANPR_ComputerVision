@@ -45,7 +45,7 @@ def baseline_training(model: YOLO, dataset_yaml: Path, config: dict) -> tuple[st
     logger.info("BASELINE TRAINING (Phase 1: 10 epochs)")
     logger.info("=" * 70)
 
-    mlflow.set_tag("phase", "baseline")
+    # mlflow.set_tag("phase", "baseline")
 
     results = model.train(
         data=str(dataset_yaml),
@@ -74,7 +74,7 @@ def baseline_training(model: YOLO, dataset_yaml: Path, config: dict) -> tuple[st
     }
 
     logger.info(f"  mAP@0.5: {baseline_metrics['baseline_mAP50']:.4f}")
-    mlflow.log_metrics(baseline_metrics)
+    # mlflow.log_metrics(baseline_metrics)
 
     return str(baseline_model_path), baseline_metrics
 
@@ -84,7 +84,7 @@ def full_training(model: YOLO, dataset_yaml: Path, config: dict, baseline_metric
     logger.info("FULL TRAINING (Phase 2: 100 epochs with augmentation)")
     logger.info("=" * 70)
 
-    mlflow.set_tag("phase", "full")
+    # mlflow.set_tag("phase", "full")
 
     results = model.train(
         data=str(dataset_yaml),
@@ -116,7 +116,7 @@ def full_training(model: YOLO, dataset_yaml: Path, config: dict, baseline_metric
     logger.info(f"  mAP@0.5: {metrics_dict['test_mAP50']:.4f}")
     logger.info(f"  Improvement: +{(metrics_dict['test_mAP50'] - baseline_metrics.get('baseline_mAP50', 0)):.4f}")
 
-    mlflow.log_metrics(metrics_dict)
+    # mlflow.log_metrics(metrics_dict)
 
     return str(best_model_path), metrics_dict
 
@@ -147,8 +147,8 @@ def main(phase: str = "full", config_path: str | None = None) -> None:
     config = load_config(config_path)
     dataset_yaml = prepare_dataset(config)
 
-    mlflow.set_experiment("anpr-detector-m2")
-    mlflow.start_run()
+    # mlflow.set_experiment("anpr-detector-m2")
+    # mlflow.start_run()
 
     try:
         model_name = config["detector"]["model"]
@@ -171,17 +171,18 @@ def main(phase: str = "full", config_path: str | None = None) -> None:
 
             if full_metrics.get("test_mAP50", 0) >= 0.92:
                 logger.info("\n✓ mAP@0.5 ≥ 0.92 (acceptance criteria MET)")
-                mlflow.log_metric("m2_acceptance", 1.0)
+                # mlflow.log_metric("m2_acceptance", 1.0)
             else:
                 logger.warning("\n✗ mAP@0.5 < 0.92 (below target)")
-                mlflow.log_metric("m2_acceptance", 0.0)
+                # mlflow.log_metric("m2_acceptance", 0.0)
 
             results_file = Path("detector_results_m2.json")
             results_file.write_text(json.dumps({"best_model": str(best_model_path), "baseline_metrics": baseline_metrics, "full_metrics": full_metrics, "exports": exports}, indent=2))
             logger.info(f"\n✓ Results saved to {results_file}")
 
     finally:
-        mlflow.end_run()
+        pass
+        # mlflow.end_run()
 
 
 if __name__ == "__main__":
