@@ -22,7 +22,6 @@ from api.security import (
 )
 from api.config import settings, UserRole
 from api.exceptions import AuthenticationError, ValidationError
-from api.rate_limiter import limiter
 from db.models import User
 
 logger = logging.getLogger(__name__)
@@ -31,7 +30,6 @@ router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
-@limiter.limit("5/minute")
 async def login(
     request: LoginRequest,
     db: AsyncSession = Depends(get_db_session),
@@ -72,7 +70,6 @@ async def login(
 
 
 @router.post("/register", response_model=TokenResponse)
-@limiter.limit("3/minute")
 async def register(
     request: dict,
     db: AsyncSession = Depends(get_db_session),

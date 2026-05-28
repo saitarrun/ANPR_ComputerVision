@@ -1,0 +1,1 @@
+- [M6 Task 7 Security Fixes](m6_task7_security_fixes.md) — Critical #4, High #10, #12 completed

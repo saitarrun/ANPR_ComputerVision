@@ -4,8 +4,6 @@ from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
 import logging
@@ -16,15 +14,11 @@ import os
 from api.config import settings
 from api.exceptions import ANPRException
 from api.logging import audit_log_context, audit_logger
+from api.rate_limiter import limiter
 from db.engine import init_db, close_db
+from api.routers import auth, ingest, websocket, data, debug, watchlist, review, audit, settings as settings_router
 
 logger = logging.getLogger(__name__)
-
-# Rate limiter instance (must be created before importing routers to avoid circular imports)
-limiter = Limiter(key_func=get_remote_address)
-
-# Now import routers (they may depend on limiter)
-from api.routers import auth, ingest, websocket, data, debug, watchlist, review, audit, settings as settings_router
 
 
 class HTTPSRedirectMiddleware(BaseHTTPMiddleware):

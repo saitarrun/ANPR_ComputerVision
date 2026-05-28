@@ -32,9 +32,20 @@ class TestRegionsEndpoints:
         assert "detail" in data
 
     @pytest.mark.integration
-    def test_list_regions_with_valid_auth(self, client, auth_token_factory, test_region):
+    async def test_list_regions_with_valid_auth(self, client, auth_token_factory, test_region, test_user, db_session):
         """Test listing regions with valid auth token."""
-        token = auth_token_factory(user_id="test-user", role="viewer")
+        from db.models import UserRegionAssignment
+
+        # Grant test_user access to test_region
+        assignment = UserRegionAssignment(
+            user_id=test_user.id,
+            region_id=test_region.id,
+            role="viewer",
+        )
+        db_session.add(assignment)
+        await db_session.commit()
+
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
         client.headers = {"Authorization": f"Bearer {token}"}
         response = client.get("/v1/regions")
         assert response.status_code == 200
@@ -48,9 +59,20 @@ class TestRegionsEndpoints:
         assert region["name"] == test_region.name
 
     @pytest.mark.integration
-    def test_list_regions_with_operator_role(self, client, auth_token_factory, test_region):
+    async def test_list_regions_with_operator_role(self, client, auth_token_factory, test_region, operator_user, db_session):
         """Test that operator role can list regions."""
-        token = auth_token_factory(user_id="operator-user", role="operator")
+        from db.models import UserRegionAssignment
+
+        # Grant operator_user access to test_region
+        assignment = UserRegionAssignment(
+            user_id=operator_user.id,
+            region_id=test_region.id,
+            role="operator",
+        )
+        db_session.add(assignment)
+        await db_session.commit()
+
+        token = auth_token_factory(user_id=str(operator_user.id), role="operator")
         client.headers = {"Authorization": f"Bearer {token}"}
         response = client.get("/v1/regions")
         assert response.status_code == 200
@@ -58,9 +80,20 @@ class TestRegionsEndpoints:
         assert isinstance(data, list)
 
     @pytest.mark.integration
-    def test_list_regions_with_admin_role(self, client, auth_token_factory, test_region):
+    async def test_list_regions_with_admin_role(self, client, auth_token_factory, test_region, admin_user, db_session):
         """Test that admin role can list regions."""
-        token = auth_token_factory(user_id="admin-user", role="admin")
+        from db.models import UserRegionAssignment
+
+        # Grant admin_user access to test_region
+        assignment = UserRegionAssignment(
+            user_id=admin_user.id,
+            region_id=test_region.id,
+            role="admin",
+        )
+        db_session.add(assignment)
+        await db_session.commit()
+
+        token = auth_token_factory(user_id=str(admin_user.id), role="admin")
         client.headers = {"Authorization": f"Bearer {token}"}
         response = client.get("/v1/regions")
         assert response.status_code == 200
@@ -145,8 +178,22 @@ class TestCamerasEndpoints:
     """GET /v1/regions/{region_id}/cameras endpoint tests."""
 
     @pytest.mark.integration
-    def test_list_cameras_with_valid_region(self, client, test_region, test_stream):
+    async def test_list_cameras_with_valid_region(self, client, auth_token_factory, test_region, test_stream, test_user, db_session):
         """Test listing cameras for a valid region."""
+        from db.models import UserRegionAssignment
+
+        # Grant test_user access to test_region
+        assignment = UserRegionAssignment(
+            user_id=test_user.id,
+            region_id=test_region.id,
+            role="viewer",
+        )
+        db_session.add(assignment)
+        await db_session.commit()
+
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+
         response = client.get(f"/v1/regions/{test_region.id}/cameras")
         assert response.status_code == 200
         data = response.json()
@@ -160,34 +207,66 @@ class TestCamerasEndpoints:
         assert camera["region_id"] == str(test_region.id)
 
     @pytest.mark.integration
-    def test_list_cameras_invalid_uuid_format(self, client):
+    async def test_list_cameras_invalid_uuid_format(self, client, auth_token_factory, test_user, db_session):
         """Test that invalid UUID format returns 422."""
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+
         response = client.get("/v1/regions/not-a-uuid/cameras")
         assert response.status_code == 422
         data = response.json()
         assert "detail" in data
 
     @pytest.mark.integration
-    def test_list_cameras_invalid_uuid_string(self, client):
+    async def test_list_cameras_invalid_uuid_string(self, client, auth_token_factory, test_user, db_session):
         """Test that invalid UUID string returns 422."""
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+
         response = client.get("/v1/regions/12345-67890/cameras")
         assert response.status_code == 422
         data = response.json()
         assert "Invalid region ID format" in str(data.get("detail", ""))
 
     @pytest.mark.integration
-    def test_list_cameras_region_not_found(self, client):
-        """Test that non-existent region returns 404."""
+    async def test_list_cameras_region_not_found(self, client, auth_token_factory, test_region, test_user, db_session):
+        """Test that non-existent region returns 403 (user doesn't have access)."""
+        from db.models import UserRegionAssignment
+
+        # Grant test_user access to test_region only
+        assignment = UserRegionAssignment(
+            user_id=test_user.id,
+            region_id=test_region.id,
+            role="viewer",
+        )
+        db_session.add(assignment)
+        await db_session.commit()
+
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+
         nonexistent_id = uuid.UUID("00000000-0000-4000-8000-000000000999")
         response = client.get(f"/v1/regions/{nonexistent_id}/cameras")
-        assert response.status_code == 404
-        data = response.json()
-        assert "Region not found" in str(data.get("detail", ""))
+        assert response.status_code == 403
 
 
     @pytest.mark.integration
-    def test_list_cameras_response_schema(self, client, test_region, test_stream):
+    async def test_list_cameras_response_schema(self, client, auth_token_factory, test_region, test_stream, test_user, db_session):
         """Test that camera response includes required fields."""
+        from db.models import UserRegionAssignment
+
+        # Grant test_user access to test_region
+        assignment = UserRegionAssignment(
+            user_id=test_user.id,
+            region_id=test_region.id,
+            role="viewer",
+        )
+        db_session.add(assignment)
+        await db_session.commit()
+
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+
         response = client.get(f"/v1/regions/{test_region.id}/cameras")
         assert response.status_code == 200
         data = response.json()
@@ -212,8 +291,22 @@ class TestCamerasEndpoints:
             ), f"Missing field '{field}' in camera response"
 
     @pytest.mark.integration
-    def test_list_cameras_uuid_string_conversion(self, client, test_region):
+    async def test_list_cameras_uuid_string_conversion(self, client, auth_token_factory, test_region, test_user, db_session):
         """Test that region_id in response is a string (UUID conversion)."""
+        from db.models import UserRegionAssignment
+
+        # Grant test_user access to test_region
+        assignment = UserRegionAssignment(
+            user_id=test_user.id,
+            region_id=test_region.id,
+            role="viewer",
+        )
+        db_session.add(assignment)
+        await db_session.commit()
+
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+
         response = client.get(f"/v1/regions/{test_region.id}/cameras")
         assert response.status_code == 200
         data = response.json()
@@ -225,9 +318,17 @@ class TestCamerasEndpoints:
 
 
     @pytest.mark.integration
-    def test_list_cameras_ordered_by_name(self, client, test_region, db_session):
+    async def test_list_cameras_ordered_by_name(self, client, auth_token_factory, test_region, test_user, db_session):
         """Test that cameras are sorted by name."""
-        from db.models import Camera
+        from db.models import Camera, UserRegionAssignment
+
+        # Grant test_user access to test_region
+        assignment = UserRegionAssignment(
+            user_id=test_user.id,
+            region_id=test_region.id,
+            role="viewer",
+        )
+        db_session.add(assignment)
 
         camera_z = Camera(
             id=uuid.UUID("00000000-0000-4000-8000-000000000060"),
@@ -247,6 +348,10 @@ class TestCamerasEndpoints:
         )
         db_session.add(camera_z)
         db_session.add(camera_a)
+        await db_session.commit()
+
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
 
         response = client.get(f"/v1/regions/{test_region.id}/cameras")
         assert response.status_code == 200
@@ -257,16 +362,44 @@ class TestCamerasEndpoints:
 
 
     @pytest.mark.integration
-    def test_list_cameras_uppercase_uuid(self, client, test_region, test_stream):
+    async def test_list_cameras_uppercase_uuid(self, client, auth_token_factory, test_region, test_stream, test_user, db_session):
         """Test that uppercase UUID is accepted and normalized."""
+        from db.models import UserRegionAssignment
+
+        # Grant test_user access to test_region
+        assignment = UserRegionAssignment(
+            user_id=test_user.id,
+            region_id=test_region.id,
+            role="viewer",
+        )
+        db_session.add(assignment)
+        await db_session.commit()
+
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+
         region_id_upper = str(test_region.id).upper()
         response = client.get(f"/v1/regions/{region_id_upper}/cameras")
         # UUID should handle uppercase gracefully
         assert response.status_code == 200
 
     @pytest.mark.integration
-    def test_list_cameras_with_hyphens_uuid(self, client, test_region, test_stream):
+    async def test_list_cameras_with_hyphens_uuid(self, client, auth_token_factory, test_region, test_stream, test_user, db_session):
         """Test that UUID with hyphens is accepted."""
+        from db.models import UserRegionAssignment
+
+        # Grant test_user access to test_region
+        assignment = UserRegionAssignment(
+            user_id=test_user.id,
+            region_id=test_region.id,
+            role="viewer",
+        )
+        db_session.add(assignment)
+        await db_session.commit()
+
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+
         region_id = str(test_region.id)
         assert "-" in region_id  # Standard UUID format has hyphens
         response = client.get(f"/v1/regions/{region_id}/cameras")

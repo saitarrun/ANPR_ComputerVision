@@ -215,7 +215,7 @@ class TestResourceAuthorization:
             plate_id=test_plate.id,
             frame_timestamp=datetime.now(timezone.utc),
             confidence=0.95,
-            bbox=[0, 0, 100, 100],
+            bbox={"x1": 0, "y1": 0, "x2": 100, "y2": 100},
             ocr_backend="paddle",
             quality_score=0.9,
         )

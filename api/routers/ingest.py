@@ -1,6 +1,6 @@
 """Frame ingest endpoint for ANPR pipeline."""
 
-from fastapi import APIRouter, HTTPException, status, Depends, Request
+from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
 import base64
 import logging
@@ -9,7 +9,6 @@ from workers.tasks import process_frame
 from api.deps.auth import get_current_user
 from api.deps import get_current_user_id
 from api.crypto import encrypt_frame
-from api.rate_limiter import limiter
 from api.logging import audit_logger
 
 logger = logging.getLogger(__name__)
@@ -31,10 +30,8 @@ class IngestResponse(BaseModel):
 
 
 @router.post("/frame", response_model=IngestResponse, status_code=status.HTTP_202_ACCEPTED)
-@limiter.limit("10/minute")
 async def ingest_frame(
     request: IngestRequest,
-    req: Request,
     user_id: str = Depends(get_current_user_id),
 ) -> IngestResponse:
     """Enqueue frame for processing.

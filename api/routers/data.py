@@ -13,6 +13,59 @@ from api.schemas.data import RegionOut, CameraOut, DetectionOut, PlateOut
 
 logger = logging.getLogger(__name__)
 
+
+def validate_uuid(uuid_string: str, field_name: str) -> UUID:
+    """Validate and convert string to UUID.
+
+    Args:
+        uuid_string: String to validate
+        field_name: Field name for error messages (e.g., 'region ID', 'camera ID')
+
+    Returns:
+        Valid UUID object
+
+    Raises:
+        HTTPException: 422 if not a valid UUID
+    """
+    try:
+        return UUID(uuid_string)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid {field_name} format",
+        )
+
+
+async def validate_plate_string(
+    plate_string: str, region_id: UUID, db: AsyncSession
+) -> None:
+    """Validate plate string against region's plate_regex.
+
+    Args:
+        plate_string: Plate to validate
+        region_id: Region ID for regex lookup
+        db: Database session
+
+    Raises:
+        HTTPException: 404 if region not found, 422 if plate invalid
+    """
+    stmt = select(Region).where(Region.id == region_id)
+    result = await db.execute(stmt)
+    region = result.scalars().first()
+
+    if not region:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Region not found",
+        )
+
+    if not re.match(region.regex, plate_string):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Plate format invalid for region {region.code}",
+        )
+
+
 router = APIRouter(prefix="/v1", tags=["data"])
 
 
