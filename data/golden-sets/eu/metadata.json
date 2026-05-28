@@ -1,0 +1,6 @@
+{
+  "name": "eu",
+  "description": "EU plates (150 samples): weather, tilt, glare",
+  "target_size": 150,
+  "region": "EU"
+}

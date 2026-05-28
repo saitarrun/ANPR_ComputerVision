@@ -1,0 +1,8 @@
+names:
+- single-line
+- double-line
+nc: 2
+path: /Users/saitarrunpitta/Projects/ComputerVision Project/data/golden-sets/full
+test: images
+train: images
+val: images

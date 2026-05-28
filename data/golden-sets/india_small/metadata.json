@@ -1,0 +1,6 @@
+{
+  "name": "india_small",
+  "description": "India plates (50 samples): angled, blur, night",
+  "target_size": 50,
+  "region": "IN"
+}

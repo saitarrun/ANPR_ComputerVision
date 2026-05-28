@@ -1,0 +1,6 @@
+{
+  "name": "us",
+  "description": "US plates (100 samples): motion blur, poor lighting",
+  "target_size": 100,
+  "region": "US"
+}
