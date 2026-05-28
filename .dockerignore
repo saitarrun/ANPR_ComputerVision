@@ -1,0 +1,58 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.venv
+venv/
+env/
+.env
+.env.local
+.env.*.local
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Project specific
+models/
+data/
+.claude/
+*.log
+
+# Documentation and CI/CD
+README.md
+docs/
+.github/
+.gitlab-ci.yml
+.circleci/
+
+# Development files
+conftest.py
+pytest.ini
+Makefile
+docker-compose.yml
+docker-compose.*.yml
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+.DS_Store

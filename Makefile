@@ -1,76 +1,177 @@
-.PHONY: help install up down logs migrate demo-webcam demo-iphone test test-unit test-int lint fmt bench clean
+.PHONY: help docker-build docker-up docker-down docker-logs docker-clean docker-test docker-shell
 
-PYTHON ?= uv run python
-COMPOSE ?= docker compose -f ops/docker-compose.yml
+# Colors for terminal output
+RED := \033[0;31m
+GREEN := \033[0;32m
+YELLOW := \033[0;33m
+NC := \033[0m # No Color
 
-help:
-	@echo "ANPR Make targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+help: ## Show this help message
+	@echo "$(GREEN)ANPR Backend Development Commands$(NC)\n"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-25s$(NC) %s\n", $$1, $$2}'
+	@echo "\n$(YELLOW)Docker Compose Flags:$(NC)"
+	@echo "  DEV=1          Use development stack (default)"
+	@echo "  PROD=1         Use production overrides"
 
-install: ## uv sync deps
-	uv sync
+# ---- Docker Compose ----
 
-up: ## Start infra via OrbStack (postgres, redis, minio, prometheus, grafana)
-	$(COMPOSE) up -d
-	@echo "Postgres: localhost:5432 | Redis: localhost:6379 | MinIO console: http://localhost:9001 | Grafana: http://localhost:3001"
+docker-up: ## Start Docker Compose stack (dev by default)
+	@echo "$(GREEN)Starting ANPR stack...$(NC)"
+	@if [ "$(PROD)" = "1" ]; then \
+		docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d; \
+		echo "$(GREEN)Production stack started$(NC)"; \
+	else \
+		docker-compose up -d; \
+		echo "$(GREEN)Development stack started$(NC)"; \
+	fi
+	@sleep 3 && make docker-health
 
-down: ## Stop infra
-	$(COMPOSE) down
+docker-down: ## Stop and remove Docker Compose stack
+	@echo "$(YELLOW)Stopping ANPR stack...$(NC)"
+	docker-compose down
+	@echo "$(GREEN)Stack stopped$(NC)"
 
-logs: ## Tail infra logs
-	$(COMPOSE) logs -f --tail=100
+docker-down-v: ## Stop stack and remove volumes (WARNING: deletes data)
+	@echo "$(RED)Removing stack and volumes...$(NC)"
+	docker-compose down -v
+	@echo "$(GREEN)Stack and volumes removed$(NC)"
 
-migrate: ## Run Alembic migrations
-	$(PYTHON) -m alembic -c db/alembic.ini upgrade head
+docker-logs: ## Follow logs from all services (ctrl+c to stop)
+	docker-compose logs -f
 
-demo-webcam: ## Live laptop-camera plate detection
-	$(PYTHON) -m scripts.demo --source webcam
+docker-logs-api: ## Follow logs from API service
+	docker-compose logs -f api
 
-demo-iphone: ## Live iPhone (Continuity Camera or RTSP) plate detection
-	$(PYTHON) -m scripts.demo --source iphone
+docker-logs-worker: ## Follow logs from Celery worker
+	docker-compose logs -f celery-worker
 
-smoke-webcam: ## Verify cv2.VideoCapture sees the laptop camera
-	$(PYTHON) scripts/smoke_webcam.py
+docker-logs-db: ## Follow logs from PostgreSQL
+	docker-compose logs -f postgres
 
-test: test-unit test-int ## Run all tests
+docker-health: ## Check health status of all services
+	@echo "$(GREEN)Service Status:$(NC)"
+	@docker-compose ps --services | while read service; do \
+		status=$$(docker-compose ps $$service | tail -1 | awk '{print $$NF}'); \
+		if echo "$$status" | grep -q healthy || echo "$$status" | grep -q "Up"; then \
+			echo "  $(GREEN)✓$(NC) $$service ($$status)"; \
+		else \
+			echo "  $(RED)✗$(NC) $$service ($$status)"; \
+		fi; \
+	done
 
-test-unit:
-	$(PYTHON) -m pytest tests/unit -q
+docker-rebuild: ## Rebuild Docker images without cache
+	@echo "$(YELLOW)Rebuilding Docker images...$(NC)"
+	docker-compose build --no-cache
+	@echo "$(GREEN)Images rebuilt$(NC)"
 
-test-int:
-	$(PYTHON) -m pytest tests/integration -q
+docker-shell: ## Open shell in API container
+	@docker-compose exec api /bin/bash
 
-lint: ## Ruff + mypy
-	uv run ruff check .
-	uv run mypy anpr_core api ingest workers db
+docker-db-shell: ## Open psql shell in PostgreSQL container
+	@docker-compose exec postgres psql -U $${POSTGRES_USER:-anpr} -d $${POSTGRES_DB:-anpr}
 
-fmt: ## Ruff format
-	uv run ruff format .
-	uv run ruff check --fix .
+docker-redis-cli: ## Open Redis CLI
+	@docker-compose exec redis redis-cli
 
-bench: ## Accuracy + latency benchmark
-	$(PYTHON) benchmarks/eval.py --set golden_in_small
+# ---- Database ----
 
-clean: ## Remove caches
-	find . -type d -name __pycache__ -prune -exec rm -rf {} +
-	rm -rf .pytest_cache .mypy_cache .ruff_cache
+db-migrate: ## Run Alembic migrations
+	@echo "$(GREEN)Running migrations...$(NC)"
+	docker-compose exec api alembic upgrade head
+	@echo "$(GREEN)Migrations complete$(NC)"
 
-m2-setup: ## M2: Initialize detector fine-tuning (golden sets + configs)
-	$(PYTHON) benchmarks/golden_sets.py
-	@echo "✓ Golden sets initialized"
-	@echo "Next: python training/data/prepare_splits.py --cache ~/.cache/anpr-datasets"
+db-migrate-create: ## Create new Alembic migration (requires MESSAGE=...)
+	@if [ -z "$(MESSAGE)" ]; then \
+		echo "$(RED)Error: MESSAGE not provided. Usage: make db-migrate-create MESSAGE='Add user table'$(NC)"; \
+		exit 1; \
+	fi
+	docker-compose exec api alembic revision --autogenerate -m "$(MESSAGE)"
 
-m2-baseline: ## M2: Train baseline detector (10 epochs, CCPD only)
-	$(PYTHON) training/scripts/train_detector_m2.py --phase baseline
+db-seed: ## Populate database with seed data
+	@echo "$(GREEN)Seeding database...$(NC)"
+	docker-compose exec api python -m scripts.seed_db
+	@echo "$(GREEN)Database seeded$(NC)"
 
-m2-full: ## M2: Full detector fine-tuning (100 epochs, CCPD + synthetic)
-	$(PYTHON) training/scripts/train_detector_m2.py --phase full
+db-reset: ## Drop and recreate database (WARNING: deletes all data)
+	@echo "$(RED)Dropping database...$(NC)"
+	docker-compose exec postgres psql -U $${POSTGRES_USER:-anpr} -d postgres -c "DROP DATABASE IF EXISTS $${POSTGRES_DB:-anpr};"
+	docker-compose exec postgres psql -U $${POSTGRES_USER:-anpr} -d postgres -c "CREATE DATABASE $${POSTGRES_DB:-anpr};"
+	@make db-migrate
+	@echo "$(GREEN)Database reset$(NC)"
 
-m2-train: ## M2: Complete training (baseline + full)
-	$(PYTHON) training/scripts/train_detector_m2.py --phase all
+# ---- Testing ----
 
-m2-eval: ## M2: Evaluate detector on golden sets
-	$(PYTHON) benchmarks/eval_m2.py --set golden_in_small --quick
+test: ## Run all tests
+	@echo "$(GREEN)Running tests...$(NC)"
+	docker-compose exec api pytest -v
 
-m2-mlflow: ## M2: View MLflow UI (training metrics)
-	mlflow ui
+test-unit: ## Run unit tests only
+	docker-compose exec api pytest tests/unit -v
+
+test-integration: ## Run integration tests (requires running stack)
+	docker-compose exec api pytest tests/integration -v
+
+test-e2e: ## Run end-to-end tests (requires running stack)
+	docker-compose exec api pytest tests/e2e -v
+
+test-cov: ## Run tests with coverage report
+	docker-compose exec api pytest --cov=api --cov=workers --cov=db --cov-report=html
+
+# ---- Linting & Type Checking ----
+
+lint: ## Run linters (ruff, mypy)
+	@echo "$(GREEN)Running linters...$(NC)"
+	docker-compose exec api ruff check . --fix
+	docker-compose exec api mypy api workers db
+
+format: ## Format code (ruff)
+	docker-compose exec api ruff format .
+
+check: ## Run all checks (lint + type check)
+	docker-compose exec api ruff check .
+	docker-compose exec api mypy api workers db
+	@echo "$(GREEN)All checks passed$(NC)"
+
+# ---- Image Building for CI/CD ----
+
+image-build: ## Build Docker image locally
+	./scripts/docker-build.sh
+
+image-build-push: ## Build and push Docker image to registry
+	./scripts/docker-build.sh --push
+
+image-build-tag: ## Build and tag Docker image (requires TAG=...)
+	@if [ -z "$(TAG)" ]; then \
+		echo "$(RED)Error: TAG not provided. Usage: make image-build-tag TAG=v0.1.0$(NC)"; \
+		exit 1; \
+	fi
+	./scripts/docker-build.sh --tag $(TAG) --push
+
+# ---- Cleanup ----
+
+docker-clean: ## Remove stopped containers and dangling images
+	@echo "$(YELLOW)Cleaning up Docker artifacts...$(NC)"
+	docker system prune -f
+	@echo "$(GREEN)Cleanup complete$(NC)"
+
+docker-clean-all: ## Remove all unused Docker resources (⚠️ aggressive)
+	@echo "$(RED)Removing all unused Docker resources...$(NC)"
+	docker system prune -a --volumes -f
+	@echo "$(GREEN)Aggressive cleanup complete$(NC)"
+
+# ---- Development Setup ----
+
+setup: ## Initialize local development environment
+	@echo "$(GREEN)Setting up development environment...$(NC)"
+	@[ -f .env.local ] || cp .env.example .env.local
+	@echo "$(YELLOW)→ Created .env.local (edit with your secrets)$(NC)"
+	@make docker-up
+	@make db-migrate
+	@make db-seed
+	@echo "$(GREEN)Setup complete! API running at http://localhost:8000/docs$(NC)"
+
+reset: ## Full reset (stop stack, remove volumes, setup)
+	@make docker-down-v
+	@make setup
+
+.DEFAULT_GOAL := help

@@ -1,68 +1,92 @@
-version: "3.9"
+version: '3.9'
 
 services:
+  # PostgreSQL database
   postgres:
     image: postgres:16-alpine
-    container_name: anpr_postgres
+    container_name: anpr-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: anpr_db
-      POSTGRES_INITDB_ARGS: "-c max_connections=200"
+      POSTGRES_USER: ${POSTGRES_USER:-anpr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-anpr}
+      POSTGRES_INITDB_ARGS: "-c shared_preload_libraries=pg_stat_statements"
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./ops/init-db.sh:/docker-entrypoint-initdb.d/01-init-user.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-anpr}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - anpr-network
 
+  # Redis (cache + Celery broker)
   redis:
     image: redis:7-alpine
-    container_name: anpr_redis
+    container_name: anpr-redis
+    command: redis-server --appendonly yes
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - anpr-network
 
-  minio:
-    image: minio/minio:latest
-    container_name: anpr_minio
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    command: minio server /data --console-address ":9001"
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
+  # FastAPI application
   api:
     build:
       context: .
-      dockerfile: Dockerfile.api
-    container_name: anpr_api
+      dockerfile: Dockerfile
+    container_name: anpr-api
     environment:
-      DATABASE_URL: postgresql+asyncpg://anpr:anpr_dev_pw@postgres:5432/anpr_db
+      # App config
+      ANPR_ENV: ${ANPR_ENV:-dev}
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # Database
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-anpr}:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/${POSTGRES_DB:-anpr}
+
+      # Redis
       REDIS_URL: redis://redis:6379/0
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-      SECRET_KEY: dev-secret-key-change-in-prod
-      JWT_SECRET: dev-jwt-secret-key-for-testing-purposes
-      FERNET_KEY: 5I0cJ1_8XY-Zx9Bk3Lp5-Qm2Nb7Vf6Tg4Dh8Wj0Sa9_Pu1Rt3Us5Vw6Xy7Za8Bc9De0Fg
+
+      # Celery
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_BACKEND_URL: redis://redis:6379/1
+
+      # Auth & Security (MUST override in .env.local for development)
+      JWT_SECRET: ${JWT_SECRET:-dev_secret_key_must_be_at_least_32_chars_long}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
+      CELERY_ENCRYPTION_KEY: ${CELERY_ENCRYPTION_KEY:-dev_encryption_key_must_be_44_chars_min}
+      FERNET_KEY: ${FERNET_KEY:-}
+
+      # S3/MinIO
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET_CROPS: ${S3_BUCKET_CROPS:-anpr-crops}
+      S3_BUCKET_FRAMES: ${S3_BUCKET_FRAMES:-anpr-frames}
+      S3_BUCKET_AUDIT: ${S3_BUCKET_AUDIT:-anpr-audit}
+
+      # CORS
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:-http://localhost:3000,http://localhost:5173}
+
+      # Pipeline
+      TARGET_FPS: ${TARGET_FPS:-15}
+      CONFIDENCE_PLATE: ${CONFIDENCE_PLATE:-0.75}
+      CONFIDENCE_CHAR: ${CONFIDENCE_CHAR:-0.60}
+      TRACK_VOTE_WINDOW: ${TRACK_VOTE_WINDOW:-8}
+
     ports:
       - "8000:8000"
     depends_on:
@@ -70,36 +94,98 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_healthy
-    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - .:/app
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      # Code hot-reload for development
+      - ./api:/app/api
+      - ./workers:/app/workers
+      - ./db:/app/db
+      - ./anpr_core:/app/anpr_core
+    networks:
+      - anpr-network
+    restart: unless-stopped
 
-  worker:
+  # Celery worker for async tasks
+  celery-worker:
     build:
       context: .
-      dockerfile: Dockerfile.api
-    container_name: anpr_worker
+      dockerfile: Dockerfile
+    container_name: anpr-celery-worker
+    command: celery -A workers.celery_app worker --loglevel=info --concurrency=2
     environment:
-      DATABASE_URL: postgresql+asyncpg://anpr:anpr_dev_pw@postgres:5432/anpr_db
+      # Same as API service
+      ANPR_ENV: ${ANPR_ENV:-dev}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # Database
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-anpr}:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/${POSTGRES_DB:-anpr}
+
+      # Redis
       REDIS_URL: redis://redis:6379/0
+
+      # Celery
       CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CELERY_BACKEND_URL: redis://redis:6379/1
+
+      # Auth & Security
+      JWT_SECRET: ${JWT_SECRET:-dev_secret_key_must_be_at_least_32_chars_long}
+      CELERY_ENCRYPTION_KEY: ${CELERY_ENCRYPTION_KEY:-dev_encryption_key_must_be_44_chars_min}
+      FERNET_KEY: ${FERNET_KEY:-}
+
+      # S3/MinIO
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_REGION: ${S3_REGION:-us-east-1}
+
+      # Pipeline
+      TARGET_FPS: ${TARGET_FPS:-15}
+      CONFIDENCE_PLATE: ${CONFIDENCE_PLATE:-0.75}
+      CONFIDENCE_CHAR: ${CONFIDENCE_CHAR:-0.60}
+      TRACK_VOTE_WINDOW: ${TRACK_VOTE_WINDOW:-8}
+
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A workers.tasks worker --loglevel=info --concurrency=2
     volumes:
-      - .:/app
+      - ./api:/app/api
+      - ./workers:/app/workers
+      - ./db:/app/db
+      - ./anpr_core:/app/anpr_core
+    networks:
+      - anpr-network
+    restart: unless-stopped
+
+  # Optional: MinIO S3-compatible storage for local development
+  minio:
+    image: minio/minio:latest
+    container_name: anpr-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/minio_data
+    command: server /minio_data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - anpr-network
 
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
+    driver: local
   minio_data:
+    driver: local
+
+networks:
+  anpr-network:
+    driver: bridge

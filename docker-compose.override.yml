@@ -1,0 +1,96 @@
+version: "3.9"
+
+# ============================================================================
+# LOCAL DEVELOPMENT OVERRIDES
+# This file is auto-loaded by `docker compose` and overrides settings in
+# docker-compose.yml for hot-reload development.
+#
+# Usage: docker compose up (picks up both .yml files automatically)
+# ============================================================================
+
+services:
+  # ============================================================================
+  # FastAPI: Hot-reload for development
+  # ============================================================================
+  api:
+    # Use --reload flag for auto-restart on file changes
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      LOG_LEVEL: DEBUG
+      ANPR_ENV: dev
+    # Ensure all source code directories are mounted
+    volumes:
+      - ./api:/app/api
+      - ./workers:/app/workers
+      - ./db:/app/db
+      - ./anpr_core:/app/anpr_core
+      - ./ingest:/app/ingest
+    stdin_open: true
+    tty: true
+
+  # ============================================================================
+  # Celery Worker: Debug-level logging
+  # ============================================================================
+  celery-worker:
+    command: celery -A workers.celery_app worker --loglevel=debug --concurrency=1
+    environment:
+      LOG_LEVEL: DEBUG
+      ANPR_ENV: dev
+    volumes:
+      - ./api:/app/api
+      - ./workers:/app/workers
+      - ./db:/app/db
+      - ./anpr_core:/app/anpr_core
+    stdin_open: true
+    tty: true
+
+  # ============================================================================
+  # pgAdmin: PostgreSQL UI for database inspection
+  # Access at http://localhost:5050
+  # Login: dev@example.com / devpassword
+  # ============================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: anpr-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: dev@example.com
+      PGADMIN_DEFAULT_PASSWORD: devpassword
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
+      PGADMIN_CONFIG_COOKIE_SAMESITE: "Lax"
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - anpr-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # Redis Commander: Redis inspection UI
+  # Access at http://localhost:8081
+  # ============================================================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: anpr-redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379
+      PORT: 8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - anpr-network
+    restart: unless-stopped
+
+volumes:
+  pgadmin_data:
+    driver: local
+
+networks:
+  anpr-network:
+    external: true
