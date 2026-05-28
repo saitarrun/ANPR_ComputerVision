@@ -5,7 +5,7 @@ import json
 import logging
 from typing import Set
 
-import aioredis
+import redis.asyncio as aioredis
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status, Query
 import jwt
 
