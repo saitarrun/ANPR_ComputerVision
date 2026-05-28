@@ -1,1 +1,2 @@
 - [M6 Backend Threat Model](threat_model_m6_backend.md) — Full security assessment: 15 findings (4 critical, 9 high, 2 medium), CORS bypass, authz bypass, WebSocket token exposure
+- [GitHub Repo Security Audit](threat_model_github_repo_audit.md) — Comprehensive audit of ANPR GitHub repo: 15 findings (1 critical, 8 high, 6 medium), risk score 47/100, default creds, tfvars secrets, CI hardcoded keys, WebSocket bypass, no OIDC, no image signing

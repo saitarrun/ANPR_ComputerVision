@@ -71,12 +71,85 @@ resource "aws_secretsmanager_secret_version" "celery" {
   })
 }
 
-# Rotation for database secret (automatic password rotation)
+# Rotation Lambda function for database password (RDS)
+resource "aws_iam_role" "secrets_rotation" {
+  name = "${var.project_name}-secrets-rotation"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.project_name}-secrets-rotation-role"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "secrets_rotation_basic" {
+  role       = aws_iam_role.secrets_rotation.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "secrets_rotation_policy" {
+  name = "${var.project_name}-secrets-rotation-policy"
+  role = aws_iam_role.secrets_rotation.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "GetSecret"
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
+        ]
+        Resource = aws_secretsmanager_secret.db.arn
+      },
+      {
+        Sid    = "UpdateSecret"
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:UpdateSecretVersionStage",
+          "secretsmanager:PutSecretValue"
+        ]
+        Resource = aws_secretsmanager_secret.db.arn
+      }
+    ]
+  })
+}
+
+# Rotation for database secret (automatic password rotation every 30 days)
 resource "aws_secretsmanager_secret_rotation" "db" {
-  secret_id           = aws_secretsmanager_secret.db.id
+  secret_id = aws_secretsmanager_secret.db.id
   rotation_rules {
     automatically_after_days = 30
   }
+  depends_on = [aws_secretsmanager_secret_version.db]
+}
+
+# JWT secret rotation (90-day schedule for long-lived signing keys)
+resource "aws_secretsmanager_secret_rotation" "jwt" {
+  secret_id = aws_secretsmanager_secret.jwt.id
+  rotation_rules {
+    automatically_after_days = 90
+  }
+  depends_on = [aws_secretsmanager_secret_version.jwt]
+}
+
+# App secret rotation (60-day schedule)
+resource "aws_secretsmanager_secret_rotation" "app" {
+  secret_id = aws_secretsmanager_secret.app.id
+  rotation_rules {
+    automatically_after_days = 60
+  }
+  depends_on = [aws_secretsmanager_secret_version.app]
 }
 
 # KMS policy to allow Secrets Manager access

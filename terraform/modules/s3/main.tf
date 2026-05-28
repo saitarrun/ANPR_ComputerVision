@@ -120,11 +120,11 @@ resource "aws_s3_bucket_policy" "main" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "DenyUnencryptedObjectUploads"
-        Effect = "Deny"
+        Sid       = "DenyUnencryptedObjectUploads"
+        Effect    = "Deny"
         Principal = "*"
-        Action = "s3:PutObject"
-        Resource = "${aws_s3_bucket.main[each.key].arn}/*"
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.main[each.key].arn}/*"
         Condition = {
           StringNotEquals = {
             "s3:x-amz-server-side-encryption" = "aws:kms"
@@ -132,10 +132,10 @@ resource "aws_s3_bucket_policy" "main" {
         }
       },
       {
-        Sid    = "DenyInsecureTransport"
-        Effect = "Deny"
+        Sid       = "DenyInsecureTransport"
+        Effect    = "Deny"
         Principal = "*"
-        Action = "s3:*"
+        Action    = "s3:*"
         Resource = [
           aws_s3_bucket.main[each.key].arn,
           "${aws_s3_bucket.main[each.key].arn}/*"
@@ -183,6 +183,167 @@ resource "aws_s3_bucket_public_access_block" "logging" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+# ======================== IAM Roles for Least-Privilege S3 Access ========================
+
+# FastAPI service role: read frames, write crops
+resource "aws_iam_role" "fastapi_s3_access" {
+  name = "${var.project_name}-fastapi-s3-access"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.project_name}-fastapi-s3-role"
+  }
+}
+
+resource "aws_iam_role_policy" "fastapi_s3_access" {
+  name = "${var.project_name}-fastapi-s3-policy"
+  role = aws_iam_role.fastapi_s3_access.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ReadFrames"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.main["frames"].arn,
+          "${aws_s3_bucket.main["frames"].arn}/*"
+        ]
+      },
+      {
+        Sid    = "WriteCrops"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:PutObjectAcl"
+        ]
+        Resource = "${aws_s3_bucket.main["crops"].arn}/*"
+      },
+      {
+        Sid    = "AllowKMSForS3"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = aws_kms_key.s3.arn
+      }
+    ]
+  })
+}
+
+# Celery worker role: write crops only (no frame access)
+resource "aws_iam_role" "celery_s3_access" {
+  name = "${var.project_name}-celery-s3-access"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.project_name}-celery-s3-role"
+  }
+}
+
+resource "aws_iam_role_policy" "celery_s3_access" {
+  name = "${var.project_name}-celery-s3-policy"
+  role = aws_iam_role.celery_s3_access.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "WriteCropsOnly"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:PutObjectAcl"
+        ]
+        Resource = "${aws_s3_bucket.main["crops"].arn}/*"
+      },
+      {
+        Sid    = "AllowKMSForS3"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = aws_kms_key.s3.arn
+      }
+    ]
+  })
+}
+
+# Audit logger role: append-only to audit bucket
+resource "aws_iam_role" "audit_s3_access" {
+  name = "${var.project_name}-audit-s3-access"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.project_name}-audit-s3-role"
+  }
+}
+
+resource "aws_iam_role_policy" "audit_s3_access" {
+  name = "${var.project_name}-audit-s3-policy"
+  role = aws_iam_role.audit_s3_access.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "WriteAuditLogs"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:PutObjectAcl"
+        ]
+        Resource = "${aws_s3_bucket.main["audit"].arn}/*"
+      },
+      {
+        Sid    = "AllowKMSForS3"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = aws_kms_key.s3.arn
+      }
+    ]
+  })
 }
 
 data "aws_caller_identity" "current" {}

@@ -6,7 +6,7 @@ import logging
 from typing import Set
 
 import redis.asyncio as aioredis
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status, Query
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from jose import jwt
 
 from api.config import settings
@@ -85,18 +85,17 @@ async def verify_ws_token(token: str) -> bool:
 async def websocket_endpoint(
     websocket: WebSocket,
     stream_id: str,
-    token: str = Query(None),
 ):
     """WebSocket endpoint for live stream detections.
 
     Args:
         websocket: WebSocket connection
         stream_id: Stream identifier
-        token: JWT token (query param or header)
+
+    Authorization: Bearer token in Authorization header (not query param).
     """
-    # Auth
-    if not token:
-        token = websocket.headers.get("authorization", "").replace("Bearer ", "")
+    # Extract token from Authorization header only (never query param)
+    token = websocket.headers.get("authorization", "").replace("Bearer ", "").strip()
 
     if not token or not await verify_ws_token(token):
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
@@ -128,13 +127,18 @@ async def websocket_endpoint(
         logger.info(f"Client disconnected from stream={stream_id}")
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
+        # Ensure cleanup on exception
+        if stream_id in active_connections:
+            active_connections[stream_id].discard(websocket)
+        raise
     finally:
-        # Remove from active connections
-        active_connections[stream_id].discard(websocket)
+        # Remove from active connections (safe if already removed)
+        if stream_id in active_connections:
+            active_connections[stream_id].discard(websocket)
 
-        # Cancel listener if no more clients
-        if not active_connections[stream_id]:
-            if listener_task:
-                listener_task.cancel()
-            del active_connections[stream_id]
-            logger.info(f"Closed stream={stream_id} (no clients)")
+            # Cancel listener if no more clients
+            if not active_connections[stream_id]:
+                if listener_task:
+                    listener_task.cancel()
+                del active_connections[stream_id]
+                logger.info(f"Closed stream={stream_id} (no clients)")

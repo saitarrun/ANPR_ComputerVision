@@ -1,5 +1,5 @@
 """Authentication endpoints."""
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +22,7 @@ from api.security import (
 )
 from api.config import settings, UserRole
 from api.exceptions import AuthenticationError, ValidationError
+from api.rate_limiter import limiter
 from db.models import User
 
 logger = logging.getLogger(__name__)
@@ -70,7 +71,9 @@ async def login(
 
 
 @router.post("/register", response_model=TokenResponse)
+@limiter.limit("3/minute")
 async def register(
+    request_obj: Request,
     request: dict,
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
@@ -79,6 +82,7 @@ async def register(
     Rate limit: 3 requests per minute per IP
 
     Args:
+        request_obj: FastAPI request (for rate limiter)
         request: Registration request (email, password, username)
         db: Database session
 

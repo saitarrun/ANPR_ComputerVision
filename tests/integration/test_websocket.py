@@ -19,9 +19,12 @@ class TestWebSocketAuth:
 
     @pytest.mark.integration
     def test_websocket_connect_with_valid_token(self, client, auth_token_factory, test_stream):
-        """Test WebSocket connection with valid auth token."""
+        """Test WebSocket connection with valid auth token (via Authorization header)."""
         token = auth_token_factory(user_id="test-user")
-        with client.websocket_connect(f"/v1/stream/{test_stream.id}?token={token}") as ws:
+        with client.websocket_connect(
+            f"/v1/stream/{test_stream.id}",
+            headers={"Authorization": f"Bearer {token}"}
+        ) as ws:
             # Connection successful
             assert ws is not None
 
@@ -37,7 +40,8 @@ class TestWebSocketAuth:
         """Test WebSocket connection with invalid token."""
         with pytest.raises(Exception):
             with client.websocket_connect(
-                f"/v1/stream/{test_stream.id}?token=invalid-token"
+                f"/v1/stream/{test_stream.id}",
+                headers={"Authorization": "Bearer invalid-token"}
             ) as ws:
                 pass
 
@@ -54,7 +58,8 @@ class TestWebSocketAuth:
         )
         with pytest.raises(Exception):
             with client.websocket_connect(
-                f"/v1/stream/{test_stream.id}?token={expired_token}"
+                f"/v1/stream/{test_stream.id}",
+                headers={"Authorization": f"Bearer {expired_token}"}
             ) as ws:
                 pass
 
@@ -67,7 +72,10 @@ class TestWebSocketMessageReception:
         """Test receiving detection message via WebSocket."""
         token = auth_token_factory()
         try:
-            with client.websocket_connect(f"/v1/stream/{test_stream.id}?token={token}") as ws:
+            with client.websocket_connect(
+                f"/v1/stream/{test_stream.id}",
+                headers={"Authorization": f"Bearer {token}"}
+            ) as ws:
                 # In real test, we'd enqueue a detection and receive it
                 # For now, just verify connection
                 pass
@@ -80,7 +88,10 @@ class TestWebSocketMessageReception:
         """Test that messages conform to DL-002 format."""
         token = auth_token_factory()
         try:
-            with client.websocket_connect(f"/v1/stream/{test_stream.id}?token={token}") as ws:
+            with client.websocket_connect(
+                f"/v1/stream/{test_stream.id}",
+                headers={"Authorization": f"Bearer {token}"}
+            ) as ws:
                 # Message format should be:
                 # {
                 #   "type": "detection",
@@ -100,7 +111,10 @@ class TestWebSocketMessageReception:
         """Test WebSocket to non-existent stream."""
         token = auth_token_factory()
         with pytest.raises(Exception):
-            with client.websocket_connect(f"/v1/stream/nonexistent?token={token}") as ws:
+            with client.websocket_connect(
+                f"/v1/stream/nonexistent",
+                headers={"Authorization": f"Bearer {token}"}
+            ) as ws:
                 pass
 
 
@@ -114,7 +128,10 @@ class TestWebSocketMultipleClients:
         token2 = auth_token_factory(user_id="user-2")
         try:
             # Connect two clients
-            with client.websocket_connect(f"/v1/stream/{test_stream.id}?token={token1}") as ws1:
+            with client.websocket_connect(
+                f"/v1/stream/{test_stream.id}",
+                headers={"Authorization": f"Bearer {token1}"}
+            ) as ws1:
                 # Would need second client connection
                 # Just verify single connection works
                 pass
@@ -130,7 +147,10 @@ class TestWebSocketBackpressure:
         """Test that WebSocket buffer is limited to 30 frames."""
         token = auth_token_factory()
         try:
-            with client.websocket_connect(f"/v1/stream/{test_stream.id}?token={token}") as ws:
+            with client.websocket_connect(
+                f"/v1/stream/{test_stream.id}",
+                headers={"Authorization": f"Bearer {token}"}
+            ) as ws:
                 # Send more than 30 messages
                 # Oldest should be dropped
                 pass
@@ -142,7 +162,10 @@ class TestWebSocketBackpressure:
         """Test that oldest frame is dropped when buffer overflows."""
         token = auth_token_factory()
         try:
-            with client.websocket_connect(f"/v1/stream/{test_stream.id}?token={token}") as ws:
+            with client.websocket_connect(
+                f"/v1/stream/{test_stream.id}",
+                headers={"Authorization": f"Bearer {token}"}
+            ) as ws:
                 # Verify drop behavior
                 pass
         except Exception:
@@ -157,7 +180,10 @@ class TestWebSocketDisconnection:
         """Test that subscription is cleaned up on disconnect."""
         token = auth_token_factory()
         try:
-            with client.websocket_connect(f"/v1/stream/{test_stream.id}?token={token}") as ws:
+            with client.websocket_connect(
+                f"/v1/stream/{test_stream.id}",
+                headers={"Authorization": f"Bearer {token}"}
+            ) as ws:
                 # Implicit disconnect on context exit
                 pass
         except Exception:
@@ -168,7 +194,10 @@ class TestWebSocketDisconnection:
         """Test explicit close message."""
         token = auth_token_factory()
         try:
-            with client.websocket_connect(f"/v1/stream/{test_stream.id}?token={token}") as ws:
+            with client.websocket_connect(
+                f"/v1/stream/{test_stream.id}",
+                headers={"Authorization": f"Bearer {token}"}
+            ) as ws:
                 ws.send_json({"type": "close"})
         except Exception:
             pass

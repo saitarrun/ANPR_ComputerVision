@@ -44,7 +44,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: anpr
-          POSTGRES_PASSWORD: anpr_dev_pw
+          POSTGRES_PASSWORD: ${{ secrets.CI_DATABASE_PASSWORD }}
           POSTGRES_DB: anpr
         ports: ["5432:5432"]
         options: >-
@@ -63,10 +63,10 @@ jobs:
           --health-retries 10
 
     env:
-      DATABASE_URL: postgresql+psycopg://anpr:anpr_dev_pw@localhost:5432/anpr
+      DATABASE_URL: postgresql+psycopg://anpr:${{ secrets.CI_DATABASE_PASSWORD }}@localhost:5432/anpr
       REDIS_URL: redis://localhost:6379/0
-      FERNET_KEY: zh4eRk9wYn7K6Jx2Vh1FmTqLpYg5RfNs8Ub3CdEoAuI=
-      JWT_SECRET: ci-jwt-secret-not-for-production-use-only
+      FERNET_KEY: ${{ secrets.CI_FERNET_KEY }}
+      JWT_SECRET: ${{ secrets.CI_JWT_SECRET }}
       APP_ENV: test
 
     steps:
@@ -197,7 +197,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: anpr
-          POSTGRES_PASSWORD: anpr_dev_pw
+          POSTGRES_PASSWORD: ${{ secrets.CI_DATABASE_PASSWORD }}
           POSTGRES_DB: anpr
         options: >-
           --health-cmd "pg_isready -U anpr"
@@ -219,10 +219,10 @@ jobs:
           docker run -d \
             --name api \
             --network host \
-            -e DATABASE_URL=postgresql+psycopg://anpr:anpr_dev_pw@localhost:5432/anpr \
+            -e DATABASE_URL=postgresql+psycopg://anpr:${{ secrets.CI_DATABASE_PASSWORD }}@localhost:5432/anpr \
             -e REDIS_URL=redis://localhost:6379/0 \
-            -e FERNET_KEY=zh4eRk9wYn7K6Jx2Vh1FmTqLpYg5RfNs8Ub3CdEoAuI= \
-            -e JWT_SECRET=smoke-test-secret \
+            -e FERNET_KEY=${{ secrets.CI_FERNET_KEY }} \
+            -e JWT_SECRET=${{ secrets.CI_JWT_SECRET }} \
             -e APP_ENV=test \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 

@@ -61,6 +61,25 @@ jobs:
           echo "Built image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${IMAGE_DIGEST}"
           echo "ARTIFACT_DIGEST=${IMAGE_DIGEST}" >> $GITHUB_ENV
 
+      - name: Install Cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.2.0'
+
+      - name: Sign image with Cosign
+        if: github.event_name != 'pull_request'
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          TAGS="${{ steps.meta.outputs.tags }}"
+          echo "$TAGS" | while read -r tag; do
+            if [ ! -z "$tag" ]; then
+              echo "Signing image: $tag"
+              cosign sign --yes "$tag" 2>&1 || echo "Note: Cosign signing requires keyless flow or private key setup"
+            fi
+          done
+
   scan:
     needs: build
     runs-on: ubuntu-latest

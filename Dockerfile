@@ -1,6 +1,8 @@
 # Multi-stage Dockerfile for ANPR FastAPI application
 # Stage 1: Builder (dependencies compilation)
-FROM python:3.11-slim AS builder
+# NOTE: Base image pinned for supply chain security (SHA256).
+# Update monthly via: docker pull python:3.11-slim && docker inspect <image> | grep RepoDigests
+FROM python:3.11-slim@sha256:a3ab0b966bc4e91546a033e22093cb840908979487a9fc0e6e38295747e49ac0 AS builder
 
 WORKDIR /build
 
@@ -25,7 +27,7 @@ RUN pip install --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -e .
 
 # Stage 2: Runtime (minimal image)
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:a3ab0b966bc4e91546a033e22093cb840908979487a9fc0e6e38295747e49ac0
 
 LABEL org.opencontainers.image.title="ANPR Backend API"
 LABEL org.opencontainers.image.description="Automatic Number Plate Recognition FastAPI service"
