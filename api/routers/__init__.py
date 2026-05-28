@@ -1,4 +1,4 @@
 """API routers."""
-from api.routers import auth
+from api.routers import auth, data
 
-__all__ = ["auth"]
+__all__ = ["auth", "data"]
