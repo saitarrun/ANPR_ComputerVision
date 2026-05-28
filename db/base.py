@@ -25,7 +25,7 @@ DeclarativeBase = declarative_base(cls=Base)
 class IDMixin:
     """Mixin for UUID primary key."""
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
 
 class TimestampMixin:

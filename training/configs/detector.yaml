@@ -1,77 +1,47 @@
-# YOLOv8s Plate Detector Fine-Tuning Config
-
+augmentation:
+  degrees: 20
+  fliplr: 0.5
+  flipud: 0.0
+  hsv_h: 0.015
+  hsv_s: 0.7
+  hsv_v: 0.4
+  mixup: 0.1
+  mosaic: 1.0
+  scale: 0.5
+  translate: 0.1
 dataset:
-  root: ~/.cache/anpr-datasets  # Will be created by prepare_splits.py
+  root: ~/.cache/anpr-datasets
+  test_ratio: 0.2
   train_ratio: 0.6
   val_ratio: 0.2
-  test_ratio: 0.2
-
 detector:
-  # Model
-  model: yolov8s.pt  # Ultralytics pretrained
-  imgsz: 640
-
-  # Training
-  epochs: 100
   batch_size: 16
-  device: cpu  # cuda:0, cpu, mps
-  optimizer: SGD
-
-  # Learning rate schedule
-  lr0: 0.01        # Initial LR
-  lrf: 0.01        # Final LR ratio (lr_final = lr0 * lrf)
-
-  # Momentum + weight decay
-  momentum: 0.937
-  weight_decay: 0.0005
-
-  # Early stopping
-  patience: 30  # epochs with no improvement before stopping
-
-  # Export formats
+  device: cpu
+  epochs: 10
   export_formats:
-    - pt
-    - onnx
-    - tflite
-
-augmentation:
-  # Color
-  hsv_h: 0.015      # HSV hue
-  hsv_s: 0.7        # HSV saturation
-  hsv_v: 0.4        # HSV value (brightness)
-
-  # Geometry
-  degrees: 20       # Rotation degrees
-  translate: 0.1    # Translation fraction
-  scale: 0.5        # Scale range (0.5 = 0.5-1.5x)
-
-  # Flip
-  flipud: 0.0       # Vertical flip prob (disabled for plate)
-  fliplr: 0.5       # Horizontal flip prob
-
-  # Mixing
-  mosaic: 1.0       # Mosaic augmentation prob
-  mixup: 0.1        # Mixup augmentation prob
-
-validation:
-  # Inference settings
-  conf: 0.25        # Confidence threshold (NMS)
-  iou: 0.6          # IoU threshold (NMS)
-
-  # Metrics
-  metrics:
-    - mAP50
-    - mAP75
-    - precision
-    - recall
-
+  - pt
+  - onnx
+  - tflite
+  imgsz: 640
+  lr0: 0.01
+  lrf: 0.01
+  model: yolov8s.pt
+  momentum: 0.937
+  optimizer: SGD
+  patience: 5
+  weight_decay: 0.0005
 logging:
-  # MLflow
   experiment_name: anpr-detector
-  run_name: yolov8s-finetune-v1
-  track_params: true
-  track_metrics: true
-
-  # Local
   project_name: anpr
-  save_period: 5    # Save checkpoint every N epochs
+  run_name: yolov8s-finetune-v1
+  save_period: 5
+  track_metrics: true
+  track_params: true
+validation:
+  conf: 0.25
+  iou: 0.6
+  metrics:
+  - mAP50
+  - mAP75
+  - precision
+  - recall

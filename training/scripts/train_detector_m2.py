@@ -56,10 +56,10 @@ def baseline_training(model: YOLO, dataset_yaml: Path, config: dict) -> tuple[st
         patience=5,
         save=True,
         project="anpr",
-        name="detector-baseline",
+        name="detector-ccpd-baseline",
     )
 
-    baseline_model_path = Path("runs/detect/detector-baseline/weights/best.pt")
+    baseline_model_path = Path("runs/detect/anpr/detector-ccpd-baseline/weights/best.pt")
     if not baseline_model_path.exists():
         raise FileNotFoundError(f"No baseline model found")
 
@@ -96,10 +96,10 @@ def full_training(model: YOLO, dataset_yaml: Path, config: dict, baseline_metric
         save=True,
         **{k: v for k, v in config["augmentation"].items()},
         project="anpr",
-        name="detector-v1",
+        name="detector-ccpd",
     )
 
-    best_model_path = Path("runs/detect/detector-v1/weights/best.pt")
+    best_model_path = Path("runs/detect/anpr/detector-ccpd/weights/best.pt")
     if not best_model_path.exists():
         raise FileNotFoundError(f"No best model found")
 

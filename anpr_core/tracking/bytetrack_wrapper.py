@@ -29,22 +29,22 @@ class PlateTracker:
     def __init__(
         self,
         frame_rate: int = 30,
-        track_thresh: float = 0.25,
-        track_buffer: int = 30,
-        match_thresh: float = 0.8,
+        track_activation_threshold: float = 0.25,
+        lost_track_buffer: int = 30,
+        minimum_matching_threshold: float = 0.8,
     ) -> None:
         """
         Args:
             frame_rate: Video FPS
-            track_thresh: Detection confidence threshold for tracking
-            track_buffer: Frames to keep track alive without detection
-            match_thresh: IOU threshold for matching
+            track_activation_threshold: Detection confidence threshold for tracking
+            lost_track_buffer: Frames to keep track alive without detection
+            minimum_matching_threshold: IOU threshold for matching
         """
         self.tracker = ByteTrack(
+            track_activation_threshold=track_activation_threshold,
+            lost_track_buffer=lost_track_buffer,
+            minimum_matching_threshold=minimum_matching_threshold,
             frame_rate=frame_rate,
-            track_thresh=track_thresh,
-            track_buffer=track_buffer,
-            match_thresh=match_thresh,
         )
 
         # Store tracking state: {track_id: [(frame_idx, plate_text, char_confs), ...]}
@@ -52,7 +52,8 @@ class PlateTracker:
         self.frame_counter = 0
 
         logger.info(
-            f"Initialized PlateTracker (fps={frame_rate}, buffer={track_buffer}, thresh={match_thresh})"
+            f"Initialized PlateTracker (fps={frame_rate}, buffer={lost_track_buffer}, "
+            f"thresh={minimum_matching_threshold})"
         )
 
     def update(

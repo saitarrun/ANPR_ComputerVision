@@ -7,7 +7,7 @@ from typing import Set
 
 import redis.asyncio as aioredis
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status, Query
-import jwt
+from jose import jwt
 
 from api.config import settings
 

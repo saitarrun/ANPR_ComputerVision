@@ -30,11 +30,13 @@ class PaddleBackend:
         """
         logger.info(f"Loading PaddleOCR (GPU={use_gpu}, lang={lang})")
 
+        # Note: Disable mkldnn due to compatibility issue with newer paddle versions
+        # (set_mkldnn_cache_capacity attribute error). Can be re-enabled when resolved.
         self.ocr = PaddleOCR(
             use_angle_cls=False,  # We normalize geometry ourselves
             lang=lang,
             use_gpu=use_gpu,
-            enable_mkldnn=True,  # CPU optimization
+            enable_mkldnn=False,  # Disabled due to compatibility issue
         )
 
     def recognize(self, crop: np.ndarray) -> list[OCRResult]:
