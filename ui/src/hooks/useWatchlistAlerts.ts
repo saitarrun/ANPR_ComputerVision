@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAlertStore } from '../stores/alertStore';
 import { getWSUrl } from '../lib/api';
 
 export function useWatchlistAlerts(streamId: string, token: string) {
   const { addAlert } = useAlertStore();
   const wsRef = useRef<WebSocket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     if (!streamId || !token) return;
@@ -14,6 +15,7 @@ export function useWatchlistAlerts(streamId: string, token: string) {
 
     ws.onopen = () => {
       console.log('WebSocket connected for alerts');
+      setIsConnected(true);
     };
 
     ws.onmessage = (event) => {
@@ -38,10 +40,12 @@ export function useWatchlistAlerts(streamId: string, token: string) {
 
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
+      setIsConnected(false);
     };
 
     ws.onclose = () => {
       console.log('WebSocket disconnected');
+      setIsConnected(false);
     };
 
     wsRef.current = ws;
@@ -54,6 +58,6 @@ export function useWatchlistAlerts(streamId: string, token: string) {
   }, [streamId, token, addAlert]);
 
   return {
-    isConnected: wsRef.current?.readyState === WebSocket.OPEN,
+    isConnected,
   };
 }

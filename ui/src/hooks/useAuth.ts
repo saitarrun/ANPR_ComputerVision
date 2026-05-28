@@ -9,7 +9,7 @@ export const useAuth = () => {
     if (!auth.user && auth.isAuthenticated) {
       auth.fetchUser();
     }
-  }, []);
+  }, [auth, auth.user, auth.isAuthenticated]);
 
   return auth;
 };
