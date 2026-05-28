@@ -83,7 +83,7 @@ def redis_url(redis_container: RedisContainer) -> str:
 @pytest_asyncio.fixture
 async def db_engine(postgres_url: str):
     """Create async SQLAlchemy engine."""
-    from db.base import Base
+    from db.base import DeclarativeBase
 
     engine = create_async_engine(
         postgres_url,
@@ -93,11 +93,11 @@ async def db_engine(postgres_url: str):
     )
     # Create all tables
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(DeclarativeBase.metadata.create_all)
     yield engine
     # Cleanup
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(DeclarativeBase.metadata.drop_all)
     await engine.dispose()
 
 
@@ -184,13 +184,13 @@ def client(app, db_session, auth_token_factory):
     """FastAPI TestClient with mocked database dependency."""
     from fastapi.testclient import TestClient
 
-    # Override the get_session dependency to use test session
-    from api.deps import get_session
+    # Override the get_db_session dependency to use test session
+    from api.deps import get_db_session
 
-    async def override_get_session():
+    async def override_get_db_session():
         yield db_session
 
-    app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_db_session] = override_get_db_session
 
     test_client = TestClient(app)
     yield test_client
@@ -229,12 +229,16 @@ async def test_user(db_session):
     """Create a test user in database."""
     from db.models import User
     from api.security import hash_password
+    from api.config import UserRole
+    import uuid
 
     user = User(
-        id="test-user",
+        id=uuid.UUID("00000000-0000-4000-8000-000000000001"),
         email="viewer@test.local",
-        password_hash=hash_password("secure-password-123"),
-        role="viewer",
+        username="viewer_user",
+        hashed_password=hash_password("secure-password-123"),
+        role=UserRole.VIEWER,
+        is_active="Y",
     )
     db_session.add(user)
     await db_session.commit()
@@ -247,12 +251,16 @@ async def operator_user(db_session):
     """Create a test operator in database."""
     from db.models import User
     from api.security import hash_password
+    from api.config import UserRole
+    import uuid
 
     user = User(
-        id="operator-user",
+        id=uuid.UUID("00000000-0000-4000-8000-000000000002"),
         email="operator@test.local",
-        password_hash=hash_password("secure-password-456"),
-        role="operator",
+        username="operator_user",
+        hashed_password=hash_password("secure-password-456"),
+        role=UserRole.OPERATOR,
+        is_active="Y",
     )
     db_session.add(user)
     await db_session.commit()
@@ -265,12 +273,16 @@ async def admin_user(db_session):
     """Create a test admin in database."""
     from db.models import User
     from api.security import hash_password
+    from api.config import UserRole
+    import uuid
 
     user = User(
-        id="admin-user",
+        id=uuid.UUID("00000000-0000-4000-8000-000000000003"),
         email="admin@test.local",
-        password_hash=hash_password("secure-password-789"),
-        role="admin",
+        username="admin_user",
+        hashed_password=hash_password("secure-password-789"),
+        role=UserRole.ADMIN,
+        is_active="Y",
     )
     db_session.add(user)
     await db_session.commit()
@@ -282,11 +294,15 @@ async def admin_user(db_session):
 async def test_region(db_session):
     """Create a test region."""
     from db.models import Region
+    import uuid
 
     region = Region(
-        id="IN",
-        code="IN",
-        name="India",
+        id=uuid.UUID("00000000-0000-4000-8000-000000000010"),
+        code="IN-KA",
+        name="Karnataka, India",
+        regex=r"^[A-Z]{2}\d{2}[A-Z]{2}\d{4}$",
+        charset="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        retention_days=90,
     )
     db_session.add(region)
     await db_session.commit()
@@ -296,39 +312,39 @@ async def test_region(db_session):
 
 @pytest_asyncio.fixture
 async def test_stream(db_session, test_user, test_region):
-    """Create a test stream."""
-    from db.models import Stream
+    """Create a test camera (formerly called stream)."""
+    from db.models import Camera
+    import uuid
 
-    stream = Stream(
-        id="test-stream-1",
-        name="Test Stream 1",
-        rtsp_url="rtsp://example.com/test",
-        user_id=test_user.id,
+    camera = Camera(
+        id=uuid.UUID("00000000-0000-4000-8000-000000000020"),
+        name="Test Camera 1",
+        source_type="rtsp",
+        url="rtsp://example.com/test",
         region_id=test_region.id,
+        status="active",
     )
-    db_session.add(stream)
+    db_session.add(camera)
     await db_session.commit()
-    await db_session.refresh(stream)
-    return stream
+    await db_session.refresh(camera)
+    return camera
 
 
 @pytest_asyncio.fixture
 async def test_plate(db_session, test_region):
     """Create a test plate."""
     from db.models import Plate
-    from cryptography.fernet import Fernet
-
-    cipher_key = os.environ.get("PLATE_ENCRYPTION_KEY", Fernet.generate_key())
-    cipher = Fernet(cipher_key)
-
-    # Store encrypted plate string
-    encrypted_plate = cipher.encrypt(b"KA01AB1234")
+    from datetime import datetime, timezone
+    import uuid
 
     plate = Plate(
-        id="plate-1",
+        id=uuid.UUID("00000000-0000-4000-8000-000000000030"),
         region_id=test_region.id,
-        plate_string_encrypted=encrypted_plate,
-        confidence=0.95,
+        plate_string="KA01AB1234",
+        detection_count=1,
+        first_seen_at=datetime.now(timezone.utc),
+        last_seen_at=datetime.now(timezone.utc),
+        avg_confidence=0.95,
     )
     db_session.add(plate)
     await db_session.commit()

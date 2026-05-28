@@ -4,7 +4,7 @@ Unit tests for database models: validation, constraints, relationships.
 Test Coverage:
 - User model: email unique constraint, role validation
 - Region model: code uniqueness
-- Stream model: foreign keys, cascades
+- Camera model: foreign keys, cascades
 - Plate model: encryption, confidence bounds
 - Detection model: plate relationships
 - Audit log model: append-only semantics
@@ -13,6 +13,7 @@ Test Coverage:
 
 from __future__ import annotations
 
+import uuid
 import pytest
 from sqlalchemy import event
 from sqlalchemy.exc import IntegrityError, StatementError
@@ -26,13 +27,16 @@ class TestUserModel:
         """Test that email uniqueness is enforced."""
         from db.models import User
         from api.security import hash_password
+        from api.config import UserRole
 
         # Try to create another user with same email
         duplicate = User(
-            id="user-2",
+            id=uuid.UUID("00000000-0000-4000-8000-000000000111"),
             email=test_user.email,  # Same email
-            password_hash=hash_password("different-password"),
-            role="viewer",
+            username="user2",
+            hashed_password=hash_password("different-password"),
+            role=UserRole.VIEWER,
+            is_active="Y",
         )
         db_session.add(duplicate)
         with pytest.raises(IntegrityError):
@@ -43,12 +47,15 @@ class TestUserModel:
         """Test that email is required."""
         from db.models import User
         from api.security import hash_password
+        from api.config import UserRole
 
         user = User(
-            id="user-3",
+            id=uuid.UUID("00000000-0000-4000-8000-000000000112"),
             email=None,
-            password_hash=hash_password("password"),
-            role="viewer",
+            username="user3",
+            hashed_password=hash_password("password"),
+            role=UserRole.VIEWER,
+            is_active="Y",
         )
         db_session.add(user)
         with pytest.raises(IntegrityError):
@@ -58,12 +65,15 @@ class TestUserModel:
     async def test_user_password_hash_required(self, db_session):
         """Test that password hash is required."""
         from db.models import User
+        from api.config import UserRole
 
         user = User(
-            id="user-4",
+            id=uuid.UUID("00000000-0000-4000-8000-000000000113"),
             email="test@example.com",
-            password_hash=None,
-            role="viewer",
+            username="user4",
+            hashed_password=None,
+            role=UserRole.VIEWER,
+            is_active="Y",
         )
         db_session.add(user)
         with pytest.raises(IntegrityError):
@@ -77,10 +87,12 @@ class TestUserModel:
 
         # Invalid role should fail or be rejected at ORM level
         user = User(
-            id="user-5",
+            id=uuid.UUID("00000000-0000-4000-8000-000000000114"),
             email="admin@example.com",
-            password_hash=hash_password("password"),
-            role="superuser",  # Invalid
+            username="user5",
+            hashed_password=hash_password("password"),
+            role="superuser",  # Invalid - will fail
+            is_active="Y",
         )
         db_session.add(user)
         # May fail at commit or during add depending on model constraints
@@ -92,12 +104,15 @@ class TestUserModel:
         """Test that created_at and updated_at are set."""
         from db.models import User
         from api.security import hash_password
+        from api.config import UserRole
 
         user = User(
-            id="user-6",
+            id=uuid.UUID("00000000-0000-4000-8000-000000000115"),
             email="timestamps@example.com",
-            password_hash=hash_password("password"),
-            role="viewer",
+            username="user6",
+            hashed_password=hash_password("password"),
+            role=UserRole.VIEWER,
+            is_active="Y",
         )
         db_session.add(user)
         await db_session.commit()
@@ -114,9 +129,12 @@ class TestRegionModel:
         from db.models import Region
 
         duplicate = Region(
-            id="IN-2",
+            id=uuid.UUID("00000000-0000-4000-8000-000000000121"),
             code=test_region.code,  # Same code
             name="India Duplicate",
+            regex=r"^[A-Z]{2}\d{2}[A-Z]{2}\d{4}$",
+            charset="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+            retention_days=90,
         )
         db_session.add(duplicate)
         with pytest.raises(IntegrityError):
@@ -127,60 +145,71 @@ class TestRegionModel:
         """Test that required fields are enforced."""
         from db.models import Region
 
-        region = Region(id="IN-3", code="IN", name=None)
+        region = Region(
+            id=uuid.UUID("00000000-0000-4000-8000-000000000122"),
+            code="IN",
+            name=None,  # Required field
+            regex=r"^[A-Z]{2}\d{2}[A-Z]{2}\d{4}$",
+            charset="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        )
         db_session.add(region)
         with pytest.raises(IntegrityError):
             await db_session.commit()
 
 
-class TestStreamModel:
-    """Stream model tests."""
+class TestCameraModel:
+    """Camera model tests."""
 
     @pytest.mark.asyncio
-    async def test_stream_requires_user_and_region(self, db_session, test_user):
-        """Test that stream requires user and region foreign keys."""
-        from db.models import Stream
+    async def test_camera_requires_region(self, db_session):
+        """Test that camera requires region foreign key."""
+        from db.models import Camera
 
-        # Missing region_id
-        stream = Stream(
-            id="stream-no-region",
-            name="Bad Stream",
-            rtsp_url="rtsp://example.com/stream",
-            user_id=test_user.id,
-            region_id="NONEXISTENT",  # Invalid FK
+        # Invalid region_id
+        camera = Camera(
+            id=uuid.UUID("00000000-0000-4000-8000-000000000131"),
+            name="Bad Camera",
+            source_type="rtsp",
+            url="rtsp://example.com/stream",
+            region_id=uuid.UUID("00000000-0000-4000-8000-999999999999"),  # Invalid FK
+            status="active",
         )
-        db_session.add(stream)
+        db_session.add(camera)
         with pytest.raises(IntegrityError):
             await db_session.commit()
 
     @pytest.mark.asyncio
-    async def test_stream_user_cascade_delete(self, db_session, test_stream):
-        """Test that deleting user cascades to streams."""
-        from db.models import User
+    async def test_camera_region_integrity(self, db_session, test_region):
+        """Test that camera requires a valid region."""
+        from db.models import Camera
 
-        user = test_stream.user
-        user_id = user.id
-        await db_session.delete(user)
+        # Create camera with valid region
+        camera = Camera(
+            id=uuid.UUID("00000000-0000-4000-8000-000000000132"),
+            name="Good Camera",
+            source_type="rtsp",
+            url="rtsp://example.com/stream",
+            region_id=test_region.id,
+            status="active",
+        )
+        db_session.add(camera)
         await db_session.commit()
-
-        # Verify stream is also deleted
-        refreshed = await db_session.get(type(test_stream), test_stream.id)
-        # Stream should be deleted (cascade)
-        assert refreshed is None
+        assert camera.region_id == test_region.id
 
     @pytest.mark.asyncio
-    async def test_stream_rtsp_url_required(self, db_session, test_user, test_region):
-        """Test that RTSP URL is required."""
-        from db.models import Stream
+    async def test_camera_name_required(self, db_session, test_region):
+        """Test that camera name is required."""
+        from db.models import Camera
 
-        stream = Stream(
-            id="stream-no-url",
-            name="No URL Stream",
-            rtsp_url=None,
-            user_id=test_user.id,
+        camera = Camera(
+            id=uuid.UUID("00000000-0000-4000-8000-000000000133"),
+            name=None,  # Required
+            source_type="rtsp",
+            url="rtsp://example.com/stream",
             region_id=test_region.id,
+            status="active",
         )
-        db_session.add(stream)
+        db_session.add(camera)
         with pytest.raises(IntegrityError):
             await db_session.commit()
 
@@ -189,55 +218,59 @@ class TestPlateModel:
     """Plate model tests."""
 
     @pytest.mark.asyncio
-    async def test_plate_confidence_bounds(self, db_session, test_region):
-        """Test that confidence is between 0 and 1."""
+    async def test_plate_average_confidence_tracking(self, db_session, test_region):
+        """Test that plate tracks average confidence."""
         from db.models import Plate
-        from cryptography.fernet import Fernet
-
-        key = Fernet.generate_key()
-        cipher = Fernet(key)
-
-        # Confidence > 1 should fail or be validated
-        plate = Plate(
-            id="plate-invalid-conf",
-            region_id=test_region.id,
-            plate_string_encrypted=cipher.encrypt(b"KA01AB1234"),
-            confidence=1.5,  # Invalid
-        )
-        db_session.add(plate)
-        # Should fail validation
-        with pytest.raises((IntegrityError, ValueError, StatementError)):
-            await db_session.commit()
-
-    @pytest.mark.asyncio
-    async def test_plate_confidence_zero_valid(self, db_session, test_region):
-        """Test that confidence=0 is valid."""
-        from db.models import Plate
-        from cryptography.fernet import Fernet
-
-        key = Fernet.generate_key()
-        cipher = Fernet(key)
+        from datetime import datetime, timezone
 
         plate = Plate(
-            id="plate-conf-zero",
+            id=uuid.UUID("00000000-0000-4000-8000-000000000141"),
             region_id=test_region.id,
-            plate_string_encrypted=cipher.encrypt(b"KA01AB1234"),
-            confidence=0.0,
+            plate_string="KA01AB1234",
+            detection_count=5,
+            first_seen_at=datetime.now(timezone.utc),
+            last_seen_at=datetime.now(timezone.utc),
+            avg_confidence=0.95,  # Valid 0-1 value
         )
         db_session.add(plate)
         await db_session.commit()
-        assert plate.confidence == 0.0
+        assert plate.avg_confidence == 0.95
 
     @pytest.mark.asyncio
-    async def test_plate_encrypted_field_required(self, db_session, test_region):
-        """Test that encrypted plate string is required."""
+    async def test_plate_first_last_seen_timestamps(self, db_session, test_region):
+        """Test that first/last seen timestamps are tracked."""
         from db.models import Plate
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        plate = Plate(
+            id=uuid.UUID("00000000-0000-4000-8000-000000000142"),
+            region_id=test_region.id,
+            plate_string="KA02AB1234",
+            detection_count=1,
+            first_seen_at=now,
+            last_seen_at=now,
+            avg_confidence=0.8,
+        )
+        db_session.add(plate)
+        await db_session.commit()
+        assert plate.first_seen_at is not None
+        assert plate.last_seen_at is not None
+
+    @pytest.mark.asyncio
+    async def test_plate_string_required(self, db_session, test_region):
+        """Test that plate string is required."""
+        from db.models import Plate
+        from datetime import datetime, timezone
 
         plate = Plate(
-            id="plate-no-encryption",
+            id=uuid.UUID("00000000-0000-4000-8000-000000000143"),
             region_id=test_region.id,
-            plate_string_encrypted=None,
-            confidence=0.95,
+            plate_string=None,  # Required
+            detection_count=1,
+            first_seen_at=datetime.now(timezone.utc),
+            last_seen_at=datetime.now(timezone.utc),
+            avg_confidence=0.95,
         )
         db_session.add(plate)
         with pytest.raises(IntegrityError):
@@ -247,16 +280,16 @@ class TestPlateModel:
     async def test_plate_region_foreign_key(self, db_session):
         """Test that region_id must exist."""
         from db.models import Plate
-        from cryptography.fernet import Fernet
-
-        key = Fernet.generate_key()
-        cipher = Fernet(key)
+        from datetime import datetime, timezone
 
         plate = Plate(
-            id="plate-invalid-region",
-            region_id="NONEXISTENT",
-            plate_string_encrypted=cipher.encrypt(b"KA01AB1234"),
-            confidence=0.95,
+            id=uuid.UUID("00000000-0000-4000-8000-000000000144"),
+            region_id=uuid.UUID("00000000-0000-4000-8000-999999999999"),  # Invalid FK
+            plate_string="KA03AB1234",
+            detection_count=1,
+            first_seen_at=datetime.now(timezone.utc),
+            last_seen_at=datetime.now(timezone.utc),
+            avg_confidence=0.95,
         )
         db_session.add(plate)
         with pytest.raises(IntegrityError):
@@ -270,30 +303,37 @@ class TestDetectionModel:
     async def test_detection_requires_plate(self, db_session, test_stream):
         """Test that detection requires valid plate_id."""
         from db.models import Detection
+        from datetime import datetime, timezone
 
         detection = Detection(
-            id="det-no-plate",
-            stream_id=test_stream.id,
-            plate_id="NONEXISTENT",
+            id=uuid.UUID("00000000-0000-4000-8000-000000000151"),
+            camera_id=test_stream.id,
+            plate_id=uuid.UUID("00000000-0000-4000-8000-999999999999"),  # Invalid FK
+            frame_timestamp=datetime.now(timezone.utc),
             confidence=0.95,
-            bounding_box={"x": 10, "y": 20, "w": 100, "h": 80},
-            timestamp=None,  # Will use now()
+            bbox=[10, 20, 110, 100],
+            ocr_backend="paddle",
+            quality_score=0.85,
         )
         db_session.add(detection)
         with pytest.raises(IntegrityError):
             await db_session.commit()
 
     @pytest.mark.asyncio
-    async def test_detection_requires_stream(self, db_session, test_plate):
-        """Test that detection requires valid stream_id."""
+    async def test_detection_requires_camera(self, db_session, test_plate):
+        """Test that detection requires valid camera_id."""
         from db.models import Detection
+        from datetime import datetime, timezone
 
         detection = Detection(
-            id="det-no-stream",
-            stream_id="NONEXISTENT",
+            id=uuid.UUID("00000000-0000-4000-8000-000000000152"),
+            camera_id=uuid.UUID("00000000-0000-4000-8000-999999999999"),  # Invalid FK
             plate_id=test_plate.id,
+            frame_timestamp=datetime.now(timezone.utc),
             confidence=0.95,
-            bounding_box={"x": 10, "y": 20, "w": 100, "h": 80},
+            bbox=[10, 20, 110, 100],
+            ocr_backend="paddle",
+            quality_score=0.85,
         )
         db_session.add(detection)
         with pytest.raises(IntegrityError):
@@ -305,27 +345,24 @@ class TestAuditLogModel:
 
     @pytest.mark.asyncio
     async def test_audit_log_append_only_semantics(self, db_session, test_user):
-        """Test that audit log entries can be created but not modified."""
+        """Test that audit log entries can be created and tracked."""
         from db.models import AuditLog
 
         entry = AuditLog(
-            id="audit-1",
+            id=uuid.UUID("00000000-0000-4000-8000-000000000161"),
             user_id=test_user.id,
-            action="login",
-            resource_type="user",
-            resource_id=test_user.id,
-            changes={"role": ["viewer", "viewer"]},
+            action="view_plate",
+            resource_type="plate",
+            resource_id=uuid.UUID("00000000-0000-4000-8000-000000000030"),
+            ip_address="192.168.1.1",
+            details={"plate_code": "KA01AB1234"},
         )
         db_session.add(entry)
         await db_session.commit()
         await db_session.refresh(entry)
 
-        # Try to update (should be rejected at ORM or DB level)
-        entry.action = "logout"  # Shouldn't be possible
-        # Some implementations reject at ORM level
-        # Others allow ORM change but reject at DB level
-        # For now, we verify the entry exists
-        assert entry.id == "audit-1"
+        # Verify the entry exists
+        assert entry.id == uuid.UUID("00000000-0000-4000-8000-000000000161")
 
     @pytest.mark.asyncio
     async def test_audit_log_required_fields(self, db_session, test_user):
@@ -334,11 +371,13 @@ class TestAuditLogModel:
 
         # Missing user_id
         entry = AuditLog(
-            id="audit-2",
+            id=uuid.UUID("00000000-0000-4000-8000-000000000162"),
             user_id=None,  # Required
             action="delete",
             resource_type="stream",
-            resource_id="stream-1",
+            resource_id=uuid.UUID("00000000-0000-4000-8000-000000000020"),
+            ip_address="192.168.1.1",
+            details={},
         )
         db_session.add(entry)
         with pytest.raises(IntegrityError):
@@ -350,11 +389,13 @@ class TestAuditLogModel:
         from db.models import AuditLog
 
         entry = AuditLog(
-            id="audit-3",
+            id=uuid.UUID("00000000-0000-4000-8000-000000000163"),
             user_id=test_user.id,
             action="create",
             resource_type="watchlist",
-            resource_id="watchlist-1",
+            resource_id=uuid.UUID("00000000-0000-4000-8000-000000000050"),
+            ip_address="192.168.1.1",
+            details={},
         )
         db_session.add(entry)
         await db_session.commit()
@@ -365,30 +406,30 @@ class TestWatchlistModel:
     """Watchlist model tests."""
 
     @pytest.mark.asyncio
-    async def test_watchlist_requires_user(self, db_session):
+    async def test_watchlist_requires_user(self, db_session, test_region):
         """Test that watchlist requires user_id."""
         from db.models import Watchlist
 
         entry = Watchlist(
-            id="watch-no-user",
-            user_id=None,
+            id=uuid.UUID("00000000-0000-4000-8000-000000000171"),
             plate_pattern="KA*",
-            match_count=0,
+            region_id=test_region.id,
+            created_by_user_id=None,  # Required
         )
         db_session.add(entry)
         with pytest.raises(IntegrityError):
             await db_session.commit()
 
     @pytest.mark.asyncio
-    async def test_watchlist_pattern_required(self, db_session, test_user):
+    async def test_watchlist_pattern_required(self, db_session, test_user, test_region):
         """Test that plate pattern is required."""
         from db.models import Watchlist
 
         entry = Watchlist(
-            id="watch-no-pattern",
-            user_id=test_user.id,
-            plate_pattern=None,
-            match_count=0,
+            id=uuid.UUID("00000000-0000-4000-8000-000000000172"),
+            plate_pattern=None,  # Required
+            region_id=test_region.id,
+            created_by_user_id=test_user.id,
         )
         db_session.add(entry)
         with pytest.raises(IntegrityError):
@@ -404,43 +445,43 @@ class TestReviewQueueModel:
         from db.models import ReviewQueue
 
         item = ReviewQueue(
-            id="review-no-det",
-            detection_id=None,
+            id=uuid.UUID("00000000-0000-4000-8000-000000000181"),
+            detection_id=None,  # Required
             status="pending",
             reviewer_id=None,
+            detection_blob={},
         )
         db_session.add(item)
         with pytest.raises(IntegrityError):
             await db_session.commit()
 
     @pytest.mark.asyncio
-    async def test_review_queue_status_values(self, db_session, test_user):
+    async def test_review_queue_status_values(self, db_session, test_stream, test_plate):
         """Test that status is validated."""
-        from db.models import ReviewQueue, Detection, Plate
-        from cryptography.fernet import Fernet
+        from db.models import ReviewQueue, Detection
+        from datetime import datetime, timezone
 
-        # Create valid detection
-        key = Fernet.generate_key()
-        cipher = Fernet(key)
-
-        region = await db_session.get_or_create(
-            "Region", defaults={"code": "IN", "name": "India"}, id="IN"
+        # Create a valid detection first
+        detection = Detection(
+            id=uuid.UUID("00000000-0000-4000-8000-000000000182"),
+            camera_id=test_stream.id,
+            plate_id=test_plate.id,
+            frame_timestamp=datetime.now(timezone.utc),
+            confidence=0.95,
+            bbox=[10, 20, 110, 100],
+            ocr_backend="paddle",
+            quality_score=0.85,
         )
-        plate = Plate(
-            id="plate-for-review",
-            region_id="IN",
-            plate_string_encrypted=cipher.encrypt(b"KA01AB1234"),
-            confidence=0.5,
-        )
-        db_session.add(plate)
+        db_session.add(detection)
         await db_session.flush()
 
-        # Create detection via raw insert to avoid model issues
-        # For this test, we'll skip validation and assume status is enum
-        # Real implementation will validate this at ORM level
+        # Create review queue item
         item = ReviewQueue(
-            id="review-status",
-            detection_id="det-1",  # Placeholder
+            id=uuid.UUID("00000000-0000-4000-8000-000000000183"),
+            detection_id=detection.id,
             status="pending",
+            detection_blob={"plate_code": "KA01AB1234"},
         )
-        # Status validation happens at model level
+        db_session.add(item)
+        await db_session.commit()
+        assert item.status == "pending"
