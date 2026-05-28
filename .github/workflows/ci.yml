@@ -25,6 +25,10 @@ jobs:
       - run: uv python install 3.11
       - run: uv sync --extra dev
 
+      - name: Pre-commit checks
+        uses: pre-commit/action@v3.0.0
+        continue-on-error: false
+
       - name: Ruff lint
         run: uv run ruff check . --exit-zero
         continue-on-error: false
@@ -108,6 +112,16 @@ jobs:
 
       - run: uv python install 3.11
       - run: uv sync --extra dev
+
+      # Secret scanning with detect-secrets
+      - name: detect-secrets scan
+        run: uv run detect-secrets scan --baseline .secrets.baseline
+        continue-on-error: false
+
+      # Bandit: Python security issues
+      - name: Bandit security analysis
+        run: uv run bandit -r anpr_core api ingest workers db -f json -o bandit-report.json || true
+        continue-on-error: true
 
       # Dependency vulnerability scanning
       - name: pip-audit (dependencies)

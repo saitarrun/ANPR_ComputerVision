@@ -125,31 +125,40 @@ resource "aws_iam_role_policy" "secrets_rotation_policy" {
   })
 }
 
-# Rotation for database secret (automatic password rotation every 30 days)
-resource "aws_secretsmanager_secret_rotation" "db" {
-  secret_id = aws_secretsmanager_secret.db.id
-  rotation_rules {
-    automatically_after_days = 30
-  }
-  depends_on = [aws_secretsmanager_secret_version.db]
-}
+# Note: Database secret rotation (RDS password) is configured via lambda_rotate module
+# This provides a Lambda function that handles the 4-step rotation lifecycle:
+# 1. create: Generate new password
+# 2. set: Update RDS master password
+# 3. test: Verify connection with new password
+# 4. finish: Finalize rotation in Secrets Manager
+#
+# JWT and App secret rotations below are placeholder-only (no active Lambda handler).
+# If JWT/App secrets require rotation, implement corresponding Lambda functions.
 
 # JWT secret rotation (90-day schedule for long-lived signing keys)
+# Note: This requires a JWT secret rotation Lambda (not yet implemented)
 resource "aws_secretsmanager_secret_rotation" "jwt" {
   secret_id = aws_secretsmanager_secret.jwt.id
   rotation_rules {
     automatically_after_days = 90
   }
   depends_on = [aws_secretsmanager_secret_version.jwt]
+
+  # Comment this back in once JWT rotation Lambda is implemented
+  # rotation_lambda_arn = module.jwt_rotate.lambda_function_arn
 }
 
 # App secret rotation (60-day schedule)
+# Note: This requires an App secret rotation Lambda (not yet implemented)
 resource "aws_secretsmanager_secret_rotation" "app" {
   secret_id = aws_secretsmanager_secret.app.id
   rotation_rules {
     automatically_after_days = 60
   }
   depends_on = [aws_secretsmanager_secret_version.app]
+
+  # Comment this back in once App secret rotation Lambda is implemented
+  # rotation_lambda_arn = module.app_rotate.lambda_function_arn
 }
 
 # KMS policy to allow Secrets Manager access

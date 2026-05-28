@@ -44,3 +44,20 @@ repos:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
         exclude: package.lock.json
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: ['-c', 'pyproject.toml', '-r', 'anpr_core', 'api', 'ingest', 'workers', 'db']
+        additional_dependencies: ['bandit[toml]']
+        language: python
+        exclude: ^tests/
+
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.10.0
+    hooks:
+      - id: pip-audit
+        args: ['--desc', '--skip-editable']
+        additional_dependencies: ['pip-audit']
+        language: python

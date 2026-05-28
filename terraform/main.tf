@@ -45,6 +45,23 @@ module "secrets" {
   secrets_kms_key_id    = aws_kms_key.secrets.id
 }
 
+module "lambda_rotate" {
+  source = "./modules/lambda_rotate"
+
+  project_name           = var.project_name
+  environment            = var.environment
+  rds_instance_id        = module.rds.db_instance_id
+  db_secret_id           = module.secrets.db_secret_id
+  db_secret_arn          = module.secrets.db_secret_arn
+  rds_security_group_id  = module.rds.rds_security_group_id
+  vpc_id                 = module.vpc.vpc_id
+  private_subnet_ids     = module.vpc.private_subnet_ids
+  rotation_days          = 30
+  log_level              = var.environment == "prod" ? "WARNING" : "INFO"
+  log_retention_days     = var.log_retention_days
+  sns_topic_arn          = module.monitoring.sns_topic_arn
+}
+
 module "s3" {
   source = "./modules/s3"
 

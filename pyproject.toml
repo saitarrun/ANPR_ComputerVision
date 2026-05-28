@@ -162,3 +162,12 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "raise NotImplementedError",
 ]
+
+# ---------- Bandit ----------
+[tool.bandit]
+tests = ["B201", "B301", "B302", "B303", "B304", "B305", "B306", "B307", "B308", "B309", "B310", "B311", "B312", "B313", "B314", "B315", "B316", "B317", "B318", "B319", "B320", "B321", "B322", "B323", "B324", "B325"]
+exclude_dirs = ["tests", "migrations"]
+skips = ["B101"]  # assert_used: allowed in test context
+
+[tool.bandit.assert_used]
+skips = ["*/tests/*", "*/test_*.py"]
