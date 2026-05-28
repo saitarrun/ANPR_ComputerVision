@@ -37,6 +37,37 @@ pwd_context = CryptContext(
 )
 
 
+def validate_password_strength(password: str) -> None:
+    """Validate password meets security requirements.
+
+    Requirements:
+    - At least 12 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one digit
+    - At least one special character (!@#$%^&*)
+
+    Args:
+        password: Plain text password
+
+    Raises:
+        PasswordHashError: If password doesn't meet requirements
+    """
+    import re
+    if not password:
+        raise PasswordHashError("Password cannot be empty")
+    if len(password) < 12:
+        raise PasswordHashError("Password must be at least 12 characters")
+    if not re.search(r"[A-Z]", password):
+        raise PasswordHashError("Password must contain at least one uppercase letter")
+    if not re.search(r"[a-z]", password):
+        raise PasswordHashError("Password must contain at least one lowercase letter")
+    if not re.search(r"[0-9]", password):
+        raise PasswordHashError("Password must contain at least one digit")
+    if not re.search(r"[!@#$%^&*]", password):
+        raise PasswordHashError("Password must contain at least one special character (!@#$%^&*)")
+
+
 def hash_password(password: str) -> str:
     """Hash password using argon2.
 
@@ -50,10 +81,7 @@ def hash_password(password: str) -> str:
         PasswordHashError: If hashing fails
     """
     try:
-        if not password:
-            raise PasswordHashError("Password cannot be empty")
-        if len(password) < 8:
-            raise PasswordHashError("Password must be at least 8 characters")
+        validate_password_strength(password)
         return pwd_context.hash(password)
     except PasswordHashError:
         raise
@@ -365,6 +393,72 @@ def extract_role_from_token(token: str) -> str:
 
 
 # ============================================================================
+# TOKEN BLACKLIST (Redis-backed revocation)
+# ============================================================================
+
+
+async def add_token_to_blacklist(token: str, redis_client) -> None:
+    """Add token to blacklist (revocation list).
+
+    Stores token JTI in Redis, expires at token's expiration time.
+    Used for logout and token revocation.
+
+    Args:
+        token: JWT token string
+        redis_client: aioredis.Redis client
+
+    Raises:
+        JWTError: If token is invalid
+    """
+    try:
+        payload = decode_jwt(token)
+        jti = payload.get("jti")
+        exp_timestamp = payload.get("exp")
+
+        if not jti or not exp_timestamp:
+            raise JWTError("Token missing JTI or expiration")
+
+        # Calculate TTL as (exp_timestamp - now) seconds
+        now_timestamp = int(datetime.now(timezone.utc).timestamp())
+        ttl = max(1, exp_timestamp - now_timestamp)
+
+        # Store in Redis with expiry equal to token's remaining lifetime
+        await redis_client.setex(f"token_blacklist:{jti}", ttl, "1")
+    except JWTError:
+        raise
+    except Exception as e:
+        raise JWTError(f"Failed to blacklist token: {str(e)}") from e
+
+
+async def is_token_blacklisted(token: str, redis_client) -> bool:
+    """Check if token has been revoked (blacklisted).
+
+    Args:
+        token: JWT token string
+        redis_client: aioredis.Redis client
+
+    Returns:
+        True if token is blacklisted, False otherwise
+
+    Raises:
+        JWTError: If token is invalid
+    """
+    try:
+        payload = decode_jwt(token)
+        jti = payload.get("jti")
+
+        if not jti:
+            raise JWTError("Token missing JTI")
+
+        result = await redis_client.exists(f"token_blacklist:{jti}")
+        return bool(result)
+    except JWTError:
+        raise
+    except Exception as e:
+        raise JWTError(f"Failed to check token blacklist: {str(e)}") from e
+
+
+# ============================================================================
 # ENCRYPTION (Fernet - symmetric)
 # ============================================================================
 
@@ -422,3 +516,49 @@ def generate_encryption_key() -> bytes:
         Fernet key suitable for encrypt_data/decrypt_data
     """
     return Fernet.generate_key()
+
+
+# ============================================================================
+# RESOURCE AUTHORIZATION
+# ============================================================================
+
+
+async def get_user_accessible_regions(
+    user_id: str,
+    db,
+) -> list[str]:
+    """Get list of region IDs that user has access to.
+
+    Args:
+        user_id: User UUID as string
+        db: SQLAlchemy AsyncSession
+
+    Returns:
+        List of region IDs (as strings) user can access.
+        Empty list if user has no region assignments.
+
+    Raises:
+        ValueError: If user_id is invalid
+    """
+    if not user_id:
+        raise ValueError("user_id is required")
+
+    try:
+        from db.models import UserRegionAssignment
+        from sqlalchemy import select
+        from uuid import UUID
+
+        user_uuid = UUID(user_id) if isinstance(user_id, str) else user_id
+
+        stmt = select(UserRegionAssignment.region_id).where(
+            UserRegionAssignment.user_id == user_uuid
+        )
+        result = await db.execute(stmt)
+        region_ids = result.scalars().all()
+
+        # Return as strings for consistency with query filters
+        return [str(rid) for rid in region_ids]
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Failed to retrieve user accessible regions: {str(e)}") from e

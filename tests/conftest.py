@@ -24,6 +24,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from testcontainers.postgres import PostgresContainer
 from testcontainers.redis import RedisContainer
+from cryptography.fernet import Fernet
 
 # ======================== Container Fixtures ========================
 
@@ -237,7 +238,7 @@ async def test_user(db_session):
         id=uuid.UUID("00000000-0000-4000-8000-000000000001"),
         email="viewer@test.local",
         username="viewer_user",
-        hashed_password=hash_password("secure-password-123"),
+        hashed_password=hash_password("SecurePass123!"),
         role=UserRole.VIEWER,
         is_active="Y",
     )
@@ -259,7 +260,7 @@ async def operator_user(db_session):
         id=uuid.UUID("00000000-0000-4000-8000-000000000002"),
         email="operator@test.local",
         username="operator_user",
-        hashed_password=hash_password("secure-password-456"),
+        hashed_password=hash_password("SecurePass456!"),
         role=UserRole.OPERATOR,
         is_active="Y",
     )
@@ -281,7 +282,7 @@ async def admin_user(db_session):
         id=uuid.UUID("00000000-0000-4000-8000-000000000003"),
         email="admin@test.local",
         username="admin_user",
-        hashed_password=hash_password("secure-password-789"),
+        hashed_password=hash_password("SecurePass789!"),
         role=UserRole.ADMIN,
         is_active="Y",
     )
@@ -358,9 +359,10 @@ async def test_plate(db_session, test_region):
 
 @pytest.fixture
 def websocket_url(auth_token_factory):
-    """WebSocket URL with auth token."""
+    """WebSocket URL with auth token (via header, not query param)."""
     token = auth_token_factory()
-    return f"ws://testserver/v1/stream/test-stream-1?token={token}"
+    # Return (url, headers) tuple; connection headers passed in connect()
+    return ("ws://testserver/v1/stream/test-stream-1", {"Authorization": f"Bearer {token}"})
 
 
 # ======================== Utility Fixtures ========================
@@ -404,6 +406,21 @@ def redis_client(redis_url: str):
     yield r
     r.flushdb()
     r.close()
+
+
+# ======================== Encryption Fixtures ========================
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_celery_encryption_key():
+    """Generate and set CELERY_ENCRYPTION_KEY for tests."""
+    # Generate a test encryption key
+    test_key = Fernet.generate_key().decode()
+    os.environ["CELERY_ENCRYPTION_KEY"] = test_key
+    yield
+    # Cleanup
+    if "CELERY_ENCRYPTION_KEY" in os.environ:
+        del os.environ["CELERY_ENCRYPTION_KEY"]
 
 
 # ======================== Marker Setup ========================
