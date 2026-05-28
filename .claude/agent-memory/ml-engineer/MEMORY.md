@@ -1,0 +1,1 @@
+- [M2 Baseline Execution](m2_baseline_execution.md) — YOLOv8s baseline trained, pipeline validated, mAP=0.586 (synthetic), p95=231ms (CPU)
