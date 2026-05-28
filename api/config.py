@@ -67,6 +67,12 @@ class Settings(BaseSettings):
     celery_broker_url: str | None = Field(default=None, validation_alias="CELERY_BROKER_URL")
     celery_result_backend: str | None = Field(default=None, validation_alias="CELERY_BACKEND_URL")
 
+    # ---- CORS ----
+    frontend_origins: str = Field(
+        default="http://localhost:3000,http://localhost:5173",
+        validation_alias="FRONTEND_ORIGINS",
+    )
+
     # ---- Pipeline Config ----
     target_fps: int = Field(default=15, validation_alias="TARGET_FPS")
     confidence_plate: float = Field(default=0.75, validation_alias="CONFIDENCE_PLATE")

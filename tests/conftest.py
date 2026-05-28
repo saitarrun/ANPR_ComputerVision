@@ -115,12 +115,6 @@ async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-@pytest.fixture
-def db_session_sync(db_session):
-    """Synchronous wrapper for tests that don't use async."""
-    # For sync tests, return the event loop and session
-    return db_session
-
 
 # ======================== Security & Auth Fixtures ========================
 

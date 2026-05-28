@@ -9,7 +9,6 @@ from contextlib import asynccontextmanager
 import logging
 import uuid
 import uvicorn
-import os
 
 from api.config import settings
 from api.exceptions import ANPRException
@@ -149,7 +148,7 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
 
     # CORS middleware: Parse explicit origins from env; reject wildcard + credentials combo
-    frontend_origins = os.getenv("FRONTEND_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
+    frontend_origins = settings.frontend_origins.split(",")
     frontend_origins = [origin.strip() for origin in frontend_origins if origin.strip()]
 
     # Security: Never allow wildcard with credentials
@@ -215,7 +214,6 @@ def create_app() -> FastAPI:
     @app.exception_handler(ANPRException)
     async def anpr_exception_handler(request: Request, exc: ANPRException):
         request_id = getattr(request.state, "request_id", "unknown")
-        user_id = getattr(request.state, "user_id", None)
         logger.warning(f"ANPR Exception: {exc.code} - {exc.message}", extra={"request_id": request_id})
         return JSONResponse(
             status_code=exc.status_code,
