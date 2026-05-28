@@ -10,7 +10,6 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 from ultralytics import YOLO
@@ -58,7 +57,7 @@ class M2EvaluationHarness:
         logger.info(f"\nBenchmarking latency ({num_iterations} iterations)...")
 
         latencies = []
-        for i in range(num_iterations):
+        for _ in range(num_iterations):
             img = np.random.randint(0, 255, (*image_size, 3), dtype=np.uint8)
 
             t_start = time.perf_counter()
@@ -81,7 +80,7 @@ class M2EvaluationHarness:
 
         return metrics
 
-    def get_golden_set_path(self, set_name: str) -> Optional[str]:
+    def get_golden_set_path(self, set_name: str) -> str | None:
         golden_root = Path("data/golden-sets")
 
         paths = {

@@ -197,8 +197,7 @@ def check_acceptance_criteria(results: dict[str, Any]) -> bool:
         status = "✓" if passed else "✗"
         logger.info(f"{status} {criterion}")
 
-    all_passed = all(criteria.values())
-    return all_passed
+    return all(criteria.values())
 
 
 def main(
@@ -250,7 +249,7 @@ def main(
     output_path = Path(output_file)
     output_path.write_text(json.dumps(results, indent=2))
 
-    logger.info(f"\n✓ Evaluation complete")
+    logger.info("\n✓ Evaluation complete")
     if all_passed:
         logger.info("✓ All acceptance criteria passed!")
         return
