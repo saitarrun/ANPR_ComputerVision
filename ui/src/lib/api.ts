@@ -53,8 +53,9 @@ export interface UserResponse {
 }
 
 export interface RegionResponse {
-  id: number;
+  id: string;
   code: string;
+  name: string;
   regex: string;
   charset: string;
   retention_days: number;
@@ -63,13 +64,13 @@ export interface RegionResponse {
 }
 
 export interface CameraResponse {
-  id: number;
+  id: string;
   name: string;
   source_type: string;
-  stream_url?: string;
-  region_id: number;
-  gps_lat?: number;
-  gps_lon?: number;
+  url?: string;
+  region_id: string;
+  latitude?: number;
+  longitude?: number;
   status: 'active' | 'inactive' | 'error';
   last_heartbeat?: string;
   created_at: string;
@@ -77,23 +78,30 @@ export interface CameraResponse {
 }
 
 export interface DetectionResponse {
-  id: number;
-  camera_id: number;
-  plate_id: number;
+  id: string;
+  camera_id: string;
+  plate_id: string;
   frame_timestamp: string;
-  plate_confidence: number;
-  char_confidence: number;
-  raw_plate: string;
+  confidence: number;
+  bbox: Record<string, number>;
+  ocr_backend: string;
+  quality_score: number;
+  crop_url?: string;
+  frame_url?: string;
+  is_persisted: string;
+  tracking_id?: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface PlateResponse {
-  id: number;
+  id: string;
   plate_string: string;
-  region_id: number;
+  region_id: string;
   detection_count: number;
   first_seen_at: string;
   last_seen_at: string;
+  avg_confidence: number;
   created_at: string;
   updated_at: string;
 }
@@ -109,32 +117,30 @@ export const authAPI = {
 };
 
 export const camerasAPI = {
-  list: (regionId?: number) =>
-    apiClient.get<CameraResponse[]>('/v1/cameras', {
-      params: { region_id: regionId },
-    }),
-  get: (id: number) =>
+  listByRegion: (regionId: string) =>
+    apiClient.get<CameraResponse[]>(`/v1/regions/${regionId}/cameras`),
+  get: (id: string) =>
     apiClient.get<CameraResponse>(`/v1/cameras/${id}`),
 };
 
 export const regionsAPI = {
   list: () =>
     apiClient.get<RegionResponse[]>('/v1/regions'),
-  get: (id: number) =>
+  get: (id: string) =>
     apiClient.get<RegionResponse>(`/v1/regions/${id}`),
 };
 
 export const platesAPI = {
-  list: (filters?: { region_id?: number; camera_id?: number; limit?: number }) =>
+  list: (filters?: { region_id?: string; limit?: number }) =>
     apiClient.get<PlateResponse[]>('/v1/plates', { params: filters }),
-  get: (id: number) =>
+  get: (id: string) =>
     apiClient.get<PlateResponse>(`/v1/plates/${id}`),
 };
 
 export const detectionAPI = {
-  list: (filters?: { camera_id?: number; plate_id?: number; limit?: number }) =>
+  list: (filters?: { region_id?: string; camera_id?: string; limit?: number }) =>
     apiClient.get<DetectionResponse[]>('/v1/detections', { params: filters }),
-  get: (id: number) =>
+  get: (id: string) =>
     apiClient.get<DetectionResponse>(`/v1/detections/${id}`),
 };
 

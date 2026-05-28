@@ -5,6 +5,8 @@ import { platesAPI } from '../lib/api';
 
 export const PlatesPage = () => {
   const [limit, setLimit] = useState(50);
+  const [searchPlate, setSearchPlate] = useState('');
+  const [sortBy, setSortBy] = useState<'recent' | 'frequent'>('recent');
 
   const { data: plates = [], isLoading } = useQuery<PlateResponse[]>({
     queryKey: ['plates', limit],
@@ -14,26 +16,70 @@ export const PlatesPage = () => {
     },
   });
 
+  // Filter and sort locally
+  const filteredPlates = plates
+    .filter((p) => p.plate_string.toUpperCase().includes(searchPlate.toUpperCase()))
+    .sort((a, b) => {
+      if (sortBy === 'frequent') {
+        return b.detection_count - a.detection_count;
+      }
+      return new Date(b.last_seen_at).getTime() - new Date(a.last_seen_at).getTime();
+    });
+
   return (
     <div className="p-8">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 space-y-4">
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">
           Detected License Plates
         </h2>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            Show:
-          </label>
-          <select
-            value={limit}
-            onChange={(e) => setLimit(Number(e.target.value))}
-            className="px-3 py-1 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
-          >
-            <option value={10}>10</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={500}>500</option>
-          </select>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Search */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Search Plate
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., ABC123"
+              value={searchPlate}
+              onChange={(e) => setSearchPlate(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              data-testid="plate-search"
+            />
+          </div>
+
+          {/* Sort */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Sort By
+            </label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'recent' | 'frequent')}
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+            >
+              <option value="recent">Most Recent</option>
+              <option value="frequent">Most Frequent</option>
+            </select>
+          </div>
+
+          {/* Limit */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Show
+            </label>
+            <select
+              value={limit}
+              onChange={(e) => setLimit(Number(e.target.value))}
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+            >
+              <option value={10}>10</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={500}>500</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -41,9 +87,9 @@ export const PlatesPage = () => {
         <div className="text-center py-12 text-slate-500 dark:text-slate-400">
           Loading plates...
         </div>
-      ) : plates.length === 0 ? (
+      ) : filteredPlates.length === 0 ? (
         <div className="text-center py-12 text-slate-500 dark:text-slate-400">
-          No plates detected yet
+          {plates.length === 0 ? 'No plates detected yet' : 'No plates match your search'}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -59,8 +105,8 @@ export const PlatesPage = () => {
                 <th className="px-6 py-3 text-right font-medium text-slate-700 dark:text-slate-300">
                   Detections
                 </th>
-                <th className="px-6 py-3 text-left font-medium text-slate-700 dark:text-slate-300">
-                  First Seen
+                <th className="px-6 py-3 text-right font-medium text-slate-700 dark:text-slate-300">
+                  Avg. Confidence
                 </th>
                 <th className="px-6 py-3 text-left font-medium text-slate-700 dark:text-slate-300">
                   Last Seen
@@ -68,7 +114,7 @@ export const PlatesPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-              {plates.map((plate) => (
+              {filteredPlates.map((plate) => (
                 <tr
                   key={plate.id}
                   className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
@@ -83,8 +129,8 @@ export const PlatesPage = () => {
                   <td className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
                     {plate.detection_count}
                   </td>
-                  <td className="px-6 py-4 text-xs text-slate-600 dark:text-slate-400">
-                    {new Date(plate.first_seen_at).toLocaleString()}
+                  <td className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
+                    {(plate.avg_confidence * 100).toFixed(1)}%
                   </td>
                   <td className="px-6 py-4 text-xs text-slate-600 dark:text-slate-400">
                     {new Date(plate.last_seen_at).toLocaleString()}
