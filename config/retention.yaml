@@ -1,0 +1,28 @@
+# Data retention policy per region.
+
+retention_policies:
+  IN:  # India
+    retention_days: 90
+    reason: "Business retention window; not GDPR-bound"
+
+  EU:  # European Union
+    retention_days: 30
+    reason: "GDPR Article 5 (data minimization); stricter than US"
+
+  US:  # United States
+    retention_days: 180
+    reason: "Standard US law enforcement data retention"
+
+# Audit log retention (separate from plate retention)
+audit_log_retention_days: 365
+audit_log_s3_backup_days: 7  # Backup older logs daily to S3
+
+# Job scheduling
+purge_job:
+  schedule: "0 2 * * *"  # 2 AM every day (off-peak)
+  batch_size: 10000      # Delete in batches to avoid locking
+
+archive_job:
+  schedule: "0 3 * * *"  # 3 AM every day
+  s3_prefix: "audit-backups/"
+  include_signature: true
