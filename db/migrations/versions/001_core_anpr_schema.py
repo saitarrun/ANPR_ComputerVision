@@ -500,7 +500,9 @@ def downgrade() -> None:
     # Drop indexes
     op.drop_index("ix_audit_log_details", table_name="audit_log", postgresql_using="gin")
     op.drop_index("ix_audit_log_created_at", table_name="audit_log")
-    op.drop_index("ix_detection_is_persisted", table_name="detections", postgresql_where="is_persisted = true")
+    op.drop_index(
+        "ix_detection_is_persisted", table_name="detections", postgresql_where="is_persisted = true"
+    )
     op.drop_index("ix_detection_frame_timestamp", table_name="detections")
     op.drop_index("ix_detection_plate_id", table_name="detections")
     op.drop_index("ix_detection_camera_id", table_name="detections")
