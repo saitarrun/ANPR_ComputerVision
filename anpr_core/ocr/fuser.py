@@ -6,9 +6,10 @@ import logging
 from dataclasses import dataclass
 
 import numpy as np
+from typing import Any
 
 from anpr_core.ocr.crnn_backend import CRNNBackend
-from anpr_core.ocr.paddle_backend import PaddleBackend
+from anpr_core.ocr.paddle_backend import PaddleBackend, OCRResult
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class OCRFuser:
 
         logger.info("Initialized OCR fusion: PaddleOCR + CRNN")
 
-    def recognize(self, crop: np.ndarray) -> FusedOCRResult:
+    def recognize(self, crop: np.ndarray[Any, Any]) -> FusedOCRResult:
         """
         Recognize plate text via fusion.
 
@@ -75,7 +76,11 @@ class OCRFuser:
 
         return fused
 
-    def _fuse_results(self, results_a: list, results_b: list) -> FusedOCRResult:
+    def _fuse_results(
+        self,
+        results_a: list[OCRResult],
+        results_b: list[OCRResult],
+    ) -> FusedOCRResult:
         """
         Fuse character-level results from 2 backends.
 
@@ -93,21 +98,21 @@ class OCRFuser:
 
         for i in range(max_len):
             # Get results or None
-            r_a = results_a[i] if i < len_a else None
-            r_b = results_b[i] if i < len_b else None
+            r_a: OCRResult | None = results_a[i] if i < len_a else None
+            r_b: OCRResult | None = results_b[i] if i < len_b else None
 
             if r_a is None and r_b is None:
                 break
 
-            if r_a is None:
+            if r_a is None and r_b is not None:
                 # Only B has result
                 plate_text += r_b.char
                 char_confidences.append(r_b.confidence)
-            elif r_b is None:
+            elif r_b is None and r_a is not None:
                 # Only A has result
                 plate_text += r_a.char
                 char_confidences.append(r_a.confidence)
-            else:
+            elif r_a is not None and r_b is not None:
                 # Both have results
                 conf_a, conf_b = r_a.confidence, r_b.confidence
 
