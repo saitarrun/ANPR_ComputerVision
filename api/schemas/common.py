@@ -1,4 +1,5 @@
 """Common schemas."""
+
 from typing import Any, Optional, Generic, TypeVar
 from pydantic import BaseModel
 
@@ -12,6 +13,7 @@ class ErrorResponse(BaseModel):
 
     class Config:
         """Pydantic config."""
+
         json_schema_extra = {
             "example": {
                 "error": {
@@ -32,4 +34,5 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
     class Config:
         """Pydantic config."""
+
         json_encoders = {object: str}
