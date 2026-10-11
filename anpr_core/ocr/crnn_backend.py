@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+from typing import Any
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -19,12 +19,7 @@ CHAR_TO_IDX = {c: i for i, c in enumerate(CHARSET)}
 IDX_TO_CHAR = {i: c for c, i in CHAR_TO_IDX.items()}
 
 
-@dataclass
-class OCRResult:
-    """Single character recognition result."""
-
-    char: str
-    confidence: float
+from anpr_core.ocr.paddle_backend import OCRResult
 
 
 class CRNN(nn.Module):
@@ -115,7 +110,7 @@ class CRNNBackend:
         else:
             logger.warning(f"Model not found at {model_path}; using random init (pre-train first)")
 
-    def recognize(self, crop: np.ndarray) -> list[OCRResult]:
+    def recognize(self, crop: np.ndarray[Any, Any]) -> list[OCRResult]:
         """
         Recognize characters in plate crop.
 
