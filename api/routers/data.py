@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
 import logging
+from typing import Any
 import re
 from uuid import UUID
 
@@ -57,7 +58,7 @@ async def validate_plate_string(plate_string: str, region_id: UUID, db: AsyncSes
             detail="Region not found",
         )
 
-    if not re.match(region.regex, plate_string):
+    if not re.match(str(region.regex), plate_string):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Plate format invalid for region {region.code}",
@@ -68,7 +69,7 @@ router = APIRouter(prefix="/v1", tags=["data"])
 
 
 @router.get("/regions", response_model=list[RegionOut])
-async def list_regions(db: AsyncSession = Depends(get_db_session)):
+async def list_regions(db: AsyncSession = Depends(get_db_session)) -> list[dict[str, Any]]:
     """List all regions.
 
     Returns:
@@ -97,7 +98,7 @@ async def list_regions(db: AsyncSession = Depends(get_db_session)):
 async def list_cameras_for_region(
     region_id: str,
     db: AsyncSession = Depends(get_db_session),
-):
+) -> list[dict[str, Any]]:
     """List cameras for a specific region.
 
     Args:
@@ -149,7 +150,7 @@ async def list_detections(
     camera_id: str | None = Query(None),
     limit: int = Query(100, ge=1, le=1000),
     db: AsyncSession = Depends(get_db_session),
-):
+) -> list[dict[str, Any]]:
     """List detections with optional filters.
 
     Args:
@@ -205,7 +206,7 @@ async def list_plates(
     camera_id: str | None = Query(None),
     limit: int = Query(100, ge=1, le=1000),
     db: AsyncSession = Depends(get_db_session),
-):
+) -> list[dict[str, Any]]:
     """List plates with optional filters.
 
     Args:
