@@ -1,4 +1,5 @@
 """Authentication endpoints."""
+
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -108,6 +109,7 @@ async def register(
 
     # Create user
     import uuid
+
     user = User(
         id=uuid.uuid4(),
         email=email,
