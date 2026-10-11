@@ -6,6 +6,7 @@ from sqlalchemy import select, and_, desc
 import logging
 import re
 import signal
+from typing import Any
 
 from api.deps import get_db_session, get_current_user_id
 from db.models import Watchlist
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/v1/watchlist", tags=["watchlist"])
 REGEX_TIMEOUT_SEC = 1
 
 
-def _regex_timeout_handler(signum, frame):
+def _regex_timeout_handler(signum: int, frame: Any) -> None:
     """Signal handler for regex timeout."""
     raise TimeoutError("Regex evaluation timeout (ReDoS protection)")
 
@@ -68,7 +69,7 @@ async def create_watchlist(
     data: WatchlistIn,
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> WatchlistOut:
     """Create a new watchlist pattern.
 
     Args:
@@ -132,7 +133,7 @@ async def list_watchlist(
     enabled_only: bool = Query(False),
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> list[WatchlistOut]:
     """List watchlist patterns.
 
     Args:
@@ -185,7 +186,7 @@ async def list_watchlist(
 async def get_watchlist(
     watchlist_id: str,
     db: AsyncSession = Depends(get_db_session),
-):
+) -> WatchlistOut:
     """Get a specific watchlist pattern.
 
     Args:
@@ -228,7 +229,7 @@ async def update_watchlist(
     data: WatchlistIn,
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> WatchlistOut:
     """Update a watchlist pattern.
 
     Args:
@@ -256,8 +257,8 @@ async def update_watchlist(
             detail=f"Invalid regex pattern: {data.plate_pattern}",
         )
 
-    watchlist.plate_pattern = data.plate_pattern
-    watchlist.region_id = data.region_id
+    watchlist.plate_pattern = data.plate_pattern  # type: ignore[assignment]
+    watchlist.region_id = data.region_id  # type: ignore[assignment]
     watchlist.reason = data.reason
     watchlist.priority = data.priority
     watchlist.alert_enabled = "Y" if data.alert_enabled else "N"
@@ -296,7 +297,7 @@ async def delete_watchlist(
     watchlist_id: str,
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> None:
     """Delete a watchlist pattern.
 
     Args:
