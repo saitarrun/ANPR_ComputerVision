@@ -95,7 +95,13 @@ def main() -> int:
 
                 info = f"frames={stats_frame_count} fps={fps:.1f} drops={scheduler.stats.frames_dropped}"
                 cv2.putText(
-                    image, info, (10, image.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1
+                    image,
+                    info,
+                    (10, image.shape[0] - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 255, 0),
+                    1,
                 )
 
                 cv2.imshow(window, image)
