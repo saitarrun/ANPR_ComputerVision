@@ -129,7 +129,9 @@ class TestQualityGate:
         # just verify structure
         assert quality.passes_gate is not None
         assert quality.quality_score >= 0.0
-        logger.info(f"Quality result: passes_gate={quality.passes_gate}, score={quality.quality_score}")
+        logger.info(
+            f"Quality result: passes_gate={quality.passes_gate}, score={quality.quality_score}"
+        )
 
     def test_quality_gate_rejects_blurry_crop(self, orchestrator: ANPROrchestrator) -> None:
         """Test that quality gate rejects blurry crops."""
@@ -188,7 +190,9 @@ class TestConfidenceGating:
         )
         assert not decision.should_persist
         assert len(decision.reasons) > 0
-        logger.info(f"Low-conf decision: should_persist={decision.should_persist}, reasons={decision.reasons}")
+        logger.info(
+            f"Low-conf decision: should_persist={decision.should_persist}, reasons={decision.reasons}"
+        )
 
 
 @pytest.mark.integration
