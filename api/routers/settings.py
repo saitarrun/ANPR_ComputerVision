@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 import logging
+from typing import Any
 
 from api.deps import get_db_session, get_current_user_id
 from api.security import hash_password, verify_password
@@ -26,7 +27,7 @@ router = APIRouter(prefix="/v1", tags=["settings"])
 async def get_current_user(
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> UserResponse:
     """Get current user info.
 
     Returns:
@@ -57,7 +58,7 @@ async def change_password(
     data: ChangePasswordRequest,
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> None:
     """Change password for current user.
 
     Args:
@@ -87,13 +88,13 @@ async def change_password(
             detail="User not found",
         )
 
-    if not verify_password(data.current_password, user.hashed_password):
+    if not verify_password(data.current_password, str(user.hashed_password)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Current password is incorrect",
         )
 
-    user.hashed_password = hash_password(data.new_password)
+    user.hashed_password = hash_password(data.new_password)  # type: ignore[assignment]
     await db.commit()
 
 
@@ -101,7 +102,7 @@ async def change_password(
 async def get_user_settings(
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> UserSettingsOut:
     """Get user settings.
 
     Returns:
@@ -133,7 +134,7 @@ async def update_user_settings(
     data: UserSettingsUpdate,
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> UserSettingsOut:
     """Update user settings.
 
     Args:
@@ -173,7 +174,7 @@ async def update_user_settings(
 async def list_users(
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> list[AdminUserListItem]:
     """List all users (admin only).
 
     Returns:
@@ -215,7 +216,7 @@ async def update_user(
     data: AdminUserUpdate,
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> AdminUserListItem:
     """Update user (admin only).
 
     Args:
@@ -254,7 +255,7 @@ async def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid role",
             )
-        target_user.role = data.role
+        target_user.role = data.role  # type: ignore[assignment]
 
     if data.is_active is not None:
         # Store in metadata (simplified)
@@ -278,7 +279,7 @@ async def update_user(
 async def health_status(
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> dict[str, Any]:
     """Get system health status.
 
     Returns:
