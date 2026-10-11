@@ -1,4 +1,5 @@
 """API dependencies."""
+
 from api.deps.db import get_db_session
 from api.deps.auth import (
     get_current_user,
