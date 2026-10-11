@@ -11,8 +11,8 @@ import uuid
 class Base:
     """Mixin for all models."""
 
-    @declared_attr
-    def __tablename__(cls) -> str:
+    @declared_attr  # type: ignore[arg-type]
+    def __tablename__(cls: type["Base"]) -> str:
         """Auto-generate table name from class name."""
         return cls.__name__.lower() + "s"
 
