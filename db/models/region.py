@@ -1,4 +1,5 @@
 """Region model (license-plate region dimension)."""
+
 from sqlalchemy import Column, String, Integer, UniqueConstraint, Index
 from db.base import DeclarativeBase, IDMixin, TimestampMixin
 
