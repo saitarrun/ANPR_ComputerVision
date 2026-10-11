@@ -1,4 +1,5 @@
 """Camera model (video source)."""
+
 from sqlalchemy import Column, String, Text, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID
 from db.base import DeclarativeBase, IDMixin, TimestampMixin
