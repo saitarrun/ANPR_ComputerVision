@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 
 import numpy as np
+from typing import Any
 from supervision import ByteTrack, Detections
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ class PlateTracker:
         )
 
         # Store tracking state: {track_id: [(frame_idx, plate_text, char_confs), ...]}
-        self.history = {}
+        self.history: dict[int, list[dict[str, Any]]] = {}
         self.frame_counter = 0
 
         logger.info(
@@ -58,8 +59,8 @@ class PlateTracker:
 
     def update(
         self,
-        detections_xyxy: np.ndarray,  # (N, 4)
-        confidences: np.ndarray,  # (N,)
+        detections_xyxy: np.ndarray[Any, Any],  # (N, 4)
+        confidences: np.ndarray[Any, Any],  # (N,)
         plate_texts: list[str] | None = None,
         char_confidences_list: list[list[float]] | None = None,
     ) -> dict[int, TrackedPlate]:
@@ -91,9 +92,10 @@ class PlateTracker:
 
         # Map to TrackedPlate
         tracked = {}
-        for i, (box, conf, track_id) in enumerate(
-            zip(detections.xyxy, detections.confidence, detections.tracker_id)
-        ):
+        xyxy: Any = detections.xyxy if detections.xyxy is not None else []
+        conf_arr: Any = detections.confidence if detections.confidence is not None else []
+        tid_arr: Any = detections.tracker_id if detections.tracker_id is not None else []
+        for i, (box, conf, track_id) in enumerate(zip(xyxy, conf_arr, tid_arr)):
             track_id = int(track_id)
 
             # Get plate text if available
@@ -130,7 +132,7 @@ class PlateTracker:
 
         return tracked
 
-    def get_track_history(self, track_id: int) -> list[dict]:
+    def get_track_history(self, track_id: int) -> list[dict[str, Any]]:
         """Get all detections for a track."""
         return self.history.get(track_id, [])
 
