@@ -99,7 +99,9 @@ class PlateTracker:
             # Get plate text if available
             plate_text = plate_texts[i] if plate_texts and i < len(plate_texts) else ""
             char_confs = (
-                char_confidences_list[i] if char_confidences_list and i < len(char_confidences_list) else []
+                char_confidences_list[i]
+                if char_confidences_list and i < len(char_confidences_list)
+                else []
             )
 
             # Update history
