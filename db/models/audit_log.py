@@ -1,4 +1,5 @@
 """Audit log model (append-only security audit trail)."""
+
 from sqlalchemy import Column, String, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from db.base import DeclarativeBase, IDMixin, TimestampMixin
