@@ -1,7 +1,8 @@
 """Watchlist API tests."""
 
 import pytest
-from httpx import AsyncClient
+from typing import Any, AsyncIterator
+from httpx import ASGITransport, AsyncClient
 from api.main import app
 from db.engine import engine
 from db.base import DeclarativeBase
@@ -9,14 +10,14 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 
 
 @pytest.fixture
-async def async_client():
+async def async_client() -> AsyncIterator[AsyncClient]:
     """Create test client."""
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
 
 
 @pytest.fixture
-async def test_db():
+async def test_db() -> AsyncIterator[Any]:
     """Create test database."""
     # Create in-memory SQLite for testing
     engine_test = create_async_engine("sqlite+aiosqlite:///:memory:")
@@ -30,7 +31,7 @@ async def test_db():
 
 
 @pytest.mark.asyncio
-async def test_create_watchlist_valid_pattern(async_client):
+async def test_create_watchlist_valid_pattern(async_client: AsyncClient) -> None:
     """Test creating watchlist with valid regex pattern."""
     response = await async_client.post(
         "/v1/watchlist",
@@ -47,7 +48,7 @@ async def test_create_watchlist_valid_pattern(async_client):
 
 
 @pytest.mark.asyncio
-async def test_create_watchlist_invalid_pattern(async_client):
+async def test_create_watchlist_invalid_pattern(async_client: AsyncClient) -> None:
     """Test creating watchlist with invalid regex pattern."""
     response = await async_client.post(
         "/v1/watchlist",
@@ -65,7 +66,7 @@ async def test_create_watchlist_invalid_pattern(async_client):
 
 
 @pytest.mark.asyncio
-async def test_list_watchlist(async_client):
+async def test_list_watchlist(async_client: AsyncClient) -> None:
     """Test listing watchlist patterns."""
     response = await async_client.get("/v1/watchlist")
 
@@ -73,7 +74,7 @@ async def test_list_watchlist(async_client):
 
 
 @pytest.mark.asyncio
-async def test_watchlist_filter_by_region(async_client):
+async def test_watchlist_filter_by_region(async_client: AsyncClient) -> None:
     """Test filtering watchlist by region."""
     response = await async_client.get("/v1/watchlist?region_id=1")
 
