@@ -19,7 +19,7 @@ import base64
 import io
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 import cv2
 import numpy as np
@@ -30,9 +30,12 @@ from anpr_core.ocr.fuser import OCRFuser
 from anpr_core.pipeline.voter import CharacterVoter, VotingResult
 from anpr_core.postproc.gate import ConfidenceGate, GateDecision
 from anpr_core.postproc.region_classifier import RegionClassifier, RegionResult
-from anpr_core.postproc.regions.eu import EUPostprocessor
-from anpr_core.postproc.regions.india import IndiaPostprocessor
-from anpr_core.postproc.regions.us import USPostprocessor
+from anpr_core.postproc.regions.eu import EUPostprocessor, PostprocResult as EUPostprocResult
+from anpr_core.postproc.regions.india import (
+    IndiaPostprocessor,
+    PostprocResult as IndiaPostprocResult,
+)
+from anpr_core.postproc.regions.us import USPostprocessor, PostprocResult as USPostprocResult
 from anpr_core.quality.quality_gate import QualityGate, QualityResult
 from anpr_core.tracking.bytetrack_wrapper import PlateTracker, TrackedPlate
 
@@ -70,7 +73,7 @@ class PipelineOutput:
     num_tracked: int
     num_persisted: int
     detections: list[PipelineDetection] = field(default_factory=list)
-    stats: dict = field(default_factory=dict)
+    stats: dict[str, Any] = field(default_factory=dict)
 
 
 class ANPROrchestrator:
@@ -150,7 +153,7 @@ class ANPROrchestrator:
 
     def process_frame(
         self,
-        image: np.ndarray,
+        image: np.ndarray[Any, Any],
         frame_id: int | None = None,
         timestamp: float = 0.0,
     ) -> PipelineOutput:
@@ -333,7 +336,7 @@ class ANPROrchestrator:
                     logger.warning(f"Voting error: {e}")
 
             # Region-specific postprocessing
-            postproc_result = None
+            postproc_result: IndiaPostprocResult | EUPostprocResult | USPostprocResult | None = None
             postproc_fixes = []
             is_valid = False
 
