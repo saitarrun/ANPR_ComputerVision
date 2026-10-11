@@ -35,7 +35,9 @@ def upgrade() -> None:
         sa.Column("camera_id", sa.String(36), nullable=False),
         sa.Column("permission", sa.String(20), nullable=False, server_default="read"),
         sa.Column("granted_by_user_id", sa.String(36), nullable=False),
-        sa.Column("granted_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "granted_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["camera_id"], ["cameras.id"], ondelete="CASCADE"),
@@ -53,7 +55,9 @@ def upgrade() -> None:
         sa.Column("s3_key", sa.String(512), nullable=False),
         sa.Column("s3_signature", sa.String(128), nullable=False),
         sa.Column("row_count", sa.Integer(), nullable=False),
-        sa.Column("archived_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "archived_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.Column("verified_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("s3_key", name="uq_audit_archive_s3_key"),
@@ -61,8 +65,12 @@ def upgrade() -> None:
     op.create_index("ix_audit_archive_archived_at", "audit_archives", ["archived_at"])
 
     # 4. Add region-scoped retention configuration.
-    op.add_column("regions", sa.Column("retention_days", sa.Integer(), nullable=False, server_default="90"))
-    op.add_column("regions", sa.Column("gdpr_scope", sa.Boolean(), nullable=False, server_default="false"))
+    op.add_column(
+        "regions", sa.Column("retention_days", sa.Integer(), nullable=False, server_default="90")
+    )
+    op.add_column(
+        "regions", sa.Column("gdpr_scope", sa.Boolean(), nullable=False, server_default="false")
+    )
 
     # 5. Add deleted_at soft-delete column to users.
     op.add_column("users", sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True))
