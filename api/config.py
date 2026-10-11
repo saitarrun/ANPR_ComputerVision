@@ -4,8 +4,8 @@ import os
 from enum import Enum
 from typing import Literal
 
-from pydantic_settings import BaseSettings
-from pydantic import Field, field_validator, ConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
 
 
 class UserRole(str, Enum):
@@ -27,7 +27,7 @@ class Environment(str, Enum):
 class Settings(BaseSettings):
     """Application settings from environment variables."""
 
-    model_config = ConfigDict(extra="ignore", env_file=".env", case_sensitive=False)
+    model_config = SettingsConfigDict(extra="ignore", env_file=".env", case_sensitive=False)
 
     # ---- App ----
     app_env: Environment = Field(default=Environment.DEV, validation_alias="ANPR_ENV")
@@ -92,7 +92,7 @@ class Settings(BaseSettings):
 
 def get_settings() -> Settings:
     """Get settings singleton."""
-    return Settings()  # type: ignore
+    return Settings()
 
 
 settings = get_settings()
