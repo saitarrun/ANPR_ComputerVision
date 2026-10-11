@@ -1,7 +1,7 @@
 """Initial ANPR schema with 9 tables, constraints, and indexes.
 
 Revision ID: 001
-Revises: 
+Revises:
 Create Date: 2026-05-27
 """
 
@@ -81,8 +81,15 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name="pk_cameras"),
         sa.UniqueConstraint("stream_id", name="uq_cameras_stream_id"),
-        sa.ForeignKeyConstraint(["region_id"], ["regions.id"], ondelete="RESTRICT", name="fk_cameras_region_id"),
-        sa.ForeignKeyConstraint(["created_by_user_id"], ["users.id"], ondelete="RESTRICT", name="fk_cameras_created_by_user_id"),
+        sa.ForeignKeyConstraint(
+            ["region_id"], ["regions.id"], ondelete="RESTRICT", name="fk_cameras_region_id"
+        ),
+        sa.ForeignKeyConstraint(
+            ["created_by_user_id"],
+            ["users.id"],
+            ondelete="RESTRICT",
+            name="fk_cameras_created_by_user_id",
+        ),
     )
     op.create_index("ix_cameras_region_id", "cameras", ["region_id"])
     op.create_index("ix_cameras_created_by_user_id", "cameras", ["created_by_user_id"])
@@ -104,7 +111,9 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id", name="pk_plates"),
-        sa.ForeignKeyConstraint(["region_id"], ["regions.id"], ondelete="RESTRICT", name="fk_plates_region_id"),
+        sa.ForeignKeyConstraint(
+            ["region_id"], ["regions.id"], ondelete="RESTRICT", name="fk_plates_region_id"
+        ),
         sa.UniqueConstraint("plate_string_encrypted", "region_id", name="uq_plate_per_region"),
     )
     op.create_index("ix_plates_region_id_created_at", "plates", ["region_id", "created_at"])
@@ -127,8 +136,12 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id", name="pk_detections"),
-        sa.ForeignKeyConstraint(["plate_id"], ["plates.id"], ondelete="CASCADE", name="fk_detections_plate_id"),
-        sa.ForeignKeyConstraint(["camera_id"], ["cameras.id"], ondelete="CASCADE", name="fk_detections_camera_id"),
+        sa.ForeignKeyConstraint(
+            ["plate_id"], ["plates.id"], ondelete="CASCADE", name="fk_detections_plate_id"
+        ),
+        sa.ForeignKeyConstraint(
+            ["camera_id"], ["cameras.id"], ondelete="CASCADE", name="fk_detections_camera_id"
+        ),
         sa.CheckConstraint(
             "avg_confidence >= 0 AND avg_confidence <= 1",
             name="ck_avg_confidence_range",
@@ -155,7 +168,9 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id", name="pk_audit_log"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="RESTRICT", name="fk_audit_log_user_id"),
+        sa.ForeignKeyConstraint(
+            ["user_id"], ["users.id"], ondelete="RESTRICT", name="fk_audit_log_user_id"
+        ),
     )
     op.create_index("ix_audit_log_user_id", "audit_log", ["user_id"])
     op.create_index("ix_audit_log_created_at", "audit_log", ["created_at"])
@@ -176,8 +191,15 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id", name="pk_watchlist"),
-        sa.ForeignKeyConstraint(["region_id"], ["regions.id"], ondelete="RESTRICT", name="fk_watchlist_region_id"),
-        sa.ForeignKeyConstraint(["created_by_user_id"], ["users.id"], ondelete="RESTRICT", name="fk_watchlist_created_by_user_id"),
+        sa.ForeignKeyConstraint(
+            ["region_id"], ["regions.id"], ondelete="RESTRICT", name="fk_watchlist_region_id"
+        ),
+        sa.ForeignKeyConstraint(
+            ["created_by_user_id"],
+            ["users.id"],
+            ondelete="RESTRICT",
+            name="fk_watchlist_created_by_user_id",
+        ),
     )
     op.create_index("ix_watchlist_region_id", "watchlist", ["region_id"])
     op.create_index("ix_watchlist_created_by_user_id", "watchlist", ["created_by_user_id"])
@@ -197,7 +219,12 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id", name="pk_review_queue"),
-        sa.ForeignKeyConstraint(["reviewed_by_user_id"], ["users.id"], ondelete="SET NULL", name="fk_review_queue_reviewed_by_user_id"),
+        sa.ForeignKeyConstraint(
+            ["reviewed_by_user_id"],
+            ["users.id"],
+            ondelete="SET NULL",
+            name="fk_review_queue_reviewed_by_user_id",
+        ),
     )
     op.create_index("ix_review_queue_status", "review_queue", ["status"])
     op.create_index("ix_review_queue_reviewed_by_user_id", "review_queue", ["reviewed_by_user_id"])
@@ -219,7 +246,9 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name="pk_api_keys"),
         sa.UniqueConstraint("key_hash", name="uq_api_keys_key_hash"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE", name="fk_api_keys_user_id"),
+        sa.ForeignKeyConstraint(
+            ["user_id"], ["users.id"], ondelete="CASCADE", name="fk_api_keys_user_id"
+        ),
     )
     op.create_index("ix_api_keys_user_id", "api_keys", ["user_id"])
 
