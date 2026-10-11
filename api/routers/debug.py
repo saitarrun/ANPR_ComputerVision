@@ -2,6 +2,7 @@
 
 import json
 import logging
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from api.config import settings
 from api.deps import get_current_user_id
@@ -16,7 +17,7 @@ router = APIRouter(prefix="/v1/debug", tags=["debug"])
 async def publish_test_detection(
     stream_id: str,
     user_id: str = Depends(get_current_user_id),
-) -> dict:
+) -> dict[str, Any]:
     """Publish a test detection to Redis (for WebSocket testing).
 
     Args:
@@ -29,7 +30,7 @@ async def publish_test_detection(
     try:
         import redis.asyncio as aioredis
 
-        redis = await aioredis.from_url(settings.redis_url)
+        redis = await aioredis.from_url(settings.redis_url)  # type: ignore[no-untyped-call]
 
         detection = {
             "id": str(uuid.uuid4()),
