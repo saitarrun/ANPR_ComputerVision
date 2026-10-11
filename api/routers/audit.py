@@ -48,14 +48,14 @@ async def list_audit_log(
 
     if date_from:
         try:
-            dt_from = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+            dt_from = datetime.fromisoformat(date_from.replace("Z", "+00:00"))
             conditions.append(AuditLog.created_at >= dt_from)
         except ValueError:
             pass
 
     if date_to:
         try:
-            dt_to = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+            dt_to = datetime.fromisoformat(date_to.replace("Z", "+00:00"))
             conditions.append(AuditLog.created_at <= dt_to)
         except ValueError:
             pass
@@ -117,14 +117,14 @@ async def export_audit_log_csv(
 
     if date_from:
         try:
-            dt_from = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+            dt_from = datetime.fromisoformat(date_from.replace("Z", "+00:00"))
             conditions.append(AuditLog.created_at >= dt_from)
         except ValueError:
             pass
 
     if date_to:
         try:
-            dt_to = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+            dt_to = datetime.fromisoformat(date_to.replace("Z", "+00:00"))
             conditions.append(AuditLog.created_at <= dt_to)
         except ValueError:
             pass
@@ -158,15 +158,17 @@ async def export_audit_log_csv(
 
     writer.writeheader()
     for entry in entries:
-        writer.writerow({
-            "timestamp": entry.created_at.isoformat(),
-            "user_id": entry.user_id,
-            "action": entry.action,
-            "resource_type": entry.resource_type,
-            "resource_id": entry.resource_id,
-            "ip_address": entry.ip_address,
-            "details": entry.details,
-        })
+        writer.writerow(
+            {
+                "timestamp": entry.created_at.isoformat(),
+                "user_id": entry.user_id,
+                "action": entry.action,
+                "resource_type": entry.resource_type,
+                "resource_id": entry.resource_id,
+                "ip_address": entry.ip_address,
+                "details": entry.details,
+            }
+        )
 
     return StreamingResponse(
         iter([output.getvalue()]),
