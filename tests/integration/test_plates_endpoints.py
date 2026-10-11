@@ -133,9 +133,7 @@ class TestPlateDetectionHistory:
     @pytest.mark.integration
     def test_get_plate_events_pagination(self, authenticated_client, test_plate):
         """Test pagination of detection events."""
-        response = authenticated_client.get(
-            f"/v1/plates/{test_plate.id}/events?limit=10&offset=0"
-        )
+        response = authenticated_client.get(f"/v1/plates/{test_plate.id}/events?limit=10&offset=0")
         assert response.status_code == 200
 
     @pytest.mark.integration
