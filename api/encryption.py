@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 class EncryptionError(Exception):
     """Raised when encryption/decryption fails."""
+
     pass
 
 
@@ -68,4 +69,3 @@ def encrypt_batch(plate_strs: list[str], key: str) -> list[str]:
 def decrypt_batch(ciphertexts_hex: list[str], key: str) -> list[str]:
     """Decrypt multiple plates."""
     return [decrypt_plate_string(c, key) for c in ciphertexts_hex]
-
