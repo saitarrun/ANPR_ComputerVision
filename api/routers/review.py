@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
 import logging
+from typing import Any
 
 from api.deps import get_db_session, get_current_user_id
 from db.models import ReviewQueue, Detection
@@ -23,7 +24,7 @@ async def list_review_queue(
     limit: int = Query(50, ge=1, le=500),
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> list[ReviewQueueOut]:
     """List review queue items with optional filters.
 
     Args:
@@ -88,7 +89,7 @@ async def resolve_review_item(
     data: ReviewQueueResolve,
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> ReviewQueueOut:
     """Resolve a review queue item (approve/reject/flag).
 
     Args:
@@ -117,15 +118,15 @@ async def resolve_review_item(
             detail="Review queue item not found",
         )
 
-    review_item.status = data.status
-    review_item.reviewer_id = user_id
+    review_item.status = data.status  # type: ignore[assignment]
+    review_item.reviewer_id = user_id  # type: ignore[assignment]
     review_item.notes = data.notes
 
     # If flagged, store corrected plate
     if data.status == "flagged" and data.corrected_plate:
-        if review_item.detection_blob is None:
-            review_item.detection_blob = {}
-        review_item.detection_blob["corrected_plate"] = data.corrected_plate
+        blob_update: Any = review_item.detection_blob or {}
+        blob_update["corrected_plate"] = data.corrected_plate
+        review_item.detection_blob = blob_update
 
     await db.commit()
     await db.refresh(review_item)
@@ -146,7 +147,7 @@ async def resolve_review_item(
 async def review_queue_stats(
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> dict[str, Any]:
     """Get review queue statistics.
 
     Returns:
@@ -166,11 +167,11 @@ async def review_queue_stats(
 
     confidences = []
     for item in all_items:
-        status = item.status
+        status = str(item.status)
         if status in stats:
             stats[status] += 1
 
-        blob = item.detection_blob or {}
+        blob: Any = item.detection_blob or {}
         if "confidence" in blob:
             confidences.append(float(blob["confidence"]))
 
