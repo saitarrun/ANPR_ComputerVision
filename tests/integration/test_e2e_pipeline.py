@@ -18,7 +18,7 @@ from io import BytesIO
 API_BASE_URL = "http://localhost:8000"
 WS_BASE_URL = "ws://localhost:8000"
 TEST_USER_EMAIL = "test@example.com"  # Seeded test user
-TEST_USER_PASSWORD = "password123"    # Seeded password
+TEST_USER_PASSWORD = "password123"  # Seeded password
 TEST_REGION_ID = "us"  # US plates
 
 
@@ -119,6 +119,7 @@ class TestE2EPipeline:
 
     def test_06_websocket_connection(self, auth_token: str) -> None:
         """Test WebSocket connection and real-time detection streaming."""
+
         async def connect_ws() -> None:
             uri = f"{WS_BASE_URL}/ws/detections?token={auth_token}"
             try:
@@ -178,13 +179,13 @@ class TestE2EPipeline:
         e2e_latency = ingest_time + query_time
         print(
             f"\nLatency Breakdown:"
-            f"\n  Ingest: {ingest_time*1000:.0f}ms"
-            f"\n  Query: {query_time*1000:.0f}ms"
-            f"\n  E2E: {e2e_latency*1000:.0f}ms"
+            f"\n  Ingest: {ingest_time * 1000:.0f}ms"
+            f"\n  Query: {query_time * 1000:.0f}ms"
+            f"\n  E2E: {e2e_latency * 1000:.0f}ms"
         )
 
         # Verify latency is under SLA (2 seconds for full pipeline)
-        assert e2e_latency < 2.0, f"E2E latency {e2e_latency*1000:.0f}ms exceeds 2s SLA"
+        assert e2e_latency < 2.0, f"E2E latency {e2e_latency * 1000:.0f}ms exceeds 2s SLA"
 
 
 class TestAPIEndpoints:
