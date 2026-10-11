@@ -1,4 +1,5 @@
 """SQLAlchemy async engine setup."""
+
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import (
     create_async_engine,
@@ -38,6 +39,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db() -> None:
     """Initialize database (create tables)."""
     from db.base import DeclarativeBase
+
     async with engine.begin() as conn:
         await conn.run_sync(DeclarativeBase.metadata.create_all)
 
@@ -45,4 +47,3 @@ async def init_db() -> None:
 async def close_db() -> None:
     """Close database connections."""
     await engine.dispose()
-
