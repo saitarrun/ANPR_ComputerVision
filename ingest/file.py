@@ -32,7 +32,9 @@ class FileSource(FrameSource):
         elif self.path.is_dir():
             import glob
 
-            self.images = sorted(glob.glob(str(self.path / "*.jpg")) + glob.glob(str(self.path / "*.png")))
+            self.images = sorted(
+                glob.glob(str(self.path / "*.jpg")) + glob.glob(str(self.path / "*.png"))
+            )
             if not self.images:
                 raise RuntimeError(f"No images in {self.path}")
             self.cap = None
