@@ -203,7 +203,7 @@ def validate_onnx(onnx_path: str, model_path: str, num_tests: int = 10) -> bool:
             onnx_output = sess.run(None, {"images": img_norm})
             # ONNX output format: [predictions, ...]
 
-            logger.debug(f"Test {i+1}/{num_tests}: shapes OK")
+            logger.debug(f"Test {i + 1}/{num_tests}: shapes OK")
 
         logger.info("✓ ONNX validation passed")
         return True
