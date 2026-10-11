@@ -1,4 +1,5 @@
 """Authentication schemas."""
+
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
@@ -32,6 +33,7 @@ class UserResponse(BaseModel):
 
     class Config:
         """Pydantic config."""
+
         from_attributes = True
         json_encoders = {datetime: lambda v: v.isoformat()}
 
