@@ -25,7 +25,10 @@ def main() -> int:
     cap = cv2.VideoCapture(args.index)
     if not cap.isOpened():
         print(f"ERROR: cannot open camera index {args.index}", file=sys.stderr)
-        print("On macOS, grant Terminal/IDE camera permission in System Settings → Privacy.", file=sys.stderr)
+        print(
+            "On macOS, grant Terminal/IDE camera permission in System Settings → Privacy.",
+            file=sys.stderr,
+        )
         return 1
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, args.width)
@@ -52,7 +55,9 @@ def main() -> int:
 
             ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
             cv2.putText(frame, ts, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-            cv2.putText(frame, f"{fps:5.1f} fps", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(
+                frame, f"{fps:5.1f} fps", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2
+            )
 
             cv2.imshow(window, frame)
             if cv2.waitKey(1) & 0xFF == ord("q"):
