@@ -13,10 +13,10 @@ _cipher = Fernet(settings.celery_encryption_key.encode())
 
 def encrypt_frame(frame_bytes: bytes) -> bytes:
     """Encrypt frame bytes for Redis transmission.
-    
+
     Args:
         frame_bytes: Raw frame data
-        
+
     Returns:
         Encrypted bytes
     """
@@ -30,10 +30,10 @@ def encrypt_frame(frame_bytes: bytes) -> bytes:
 
 def decrypt_frame(encrypted_bytes: bytes) -> bytes:
     """Decrypt frame bytes from Redis.
-    
+
     Args:
         encrypted_bytes: Encrypted frame data
-        
+
     Returns:
         Raw frame bytes
     """
