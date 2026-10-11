@@ -49,15 +49,16 @@ class TestAuditLogging:
     def test_audit_logger_configured(self):
         """Audit logger should be importable and configured."""
         from api.logging import audit_logger
+
         assert audit_logger is not None
-        assert hasattr(audit_logger, 'info')
-        assert hasattr(audit_logger, 'warning')
-        assert hasattr(audit_logger, 'error')
+        assert hasattr(audit_logger, "info")
+        assert hasattr(audit_logger, "warning")
+        assert hasattr(audit_logger, "error")
 
     def test_audit_log_context_manager(self):
         """Audit logging context manager should work."""
         from api.logging import audit_log_context, audit_context
-        
+
         with audit_log_context("test-request-id", "test-user", "127.0.0.1"):
             ctx = audit_context.get()
             assert ctx["request_id"] == "test-request-id"
@@ -68,7 +69,7 @@ class TestAuditLogging:
         """Audit logs should be JSON-formatted."""
         from api.logging import StructuredFormatter
         import logging
-        
+
         formatter = StructuredFormatter()
         record = logging.LogRecord(
             name="audit",
@@ -77,14 +78,14 @@ class TestAuditLogging:
             lineno=1,
             msg="test_event",
             args=(),
-            exc_info=None
+            exc_info=None,
         )
         record.user_id = "test-user"
         record.action = "test_action"
-        
+
         formatted = formatter.format(record)
         parsed = json.loads(formatted)
-        
+
         assert parsed["level"] == "INFO"
         assert parsed["message"] == "test_event"
         assert parsed["user_id"] == "test-user"
@@ -96,19 +97,20 @@ class TestRateLimiter:
 
     def test_rate_limiter_configured(self, app):
         """Rate limiter should be configured on app state."""
-        assert hasattr(app.state, 'limiter')
+        assert hasattr(app.state, "limiter")
         assert app.state.limiter is not None
 
     def test_rate_limit_exceeded_handler_registered(self, app):
         """Rate limit exceeded exception handler should be registered."""
         from slowapi.errors import RateLimitExceeded
+
         assert RateLimitExceeded in app.exception_handlers
 
     def test_rate_limit_exceeded_response(self, client: TestClient):
         """Rate limit exceeded should return 429 with proper format."""
         from slowapi.errors import RateLimitExceeded
-        
-        # We can't easily trigger a real rate limit in tests, 
+
+        # We can't easily trigger a real rate limit in tests,
         # but we can verify the exception handler exists and is configured
         app = client.app
         assert RateLimitExceeded in app.exception_handlers
@@ -124,8 +126,7 @@ class TestAuditLoggingOnAuthEndpoints:
         # This test verifies the middleware is in place
         # Actual log verification would require capturing logs
         response = client.post(
-            "/v1/auth/login",
-            json={"email": "invalid@test.local", "password": "wrong"}
+            "/v1/auth/login", json={"email": "invalid@test.local", "password": "wrong"}
         )
         # Response may fail due to invalid credentials, but middleware should still run
         assert "X-Request-ID" in response.headers
