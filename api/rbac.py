@@ -116,19 +116,16 @@ async def check_camera_access(
         return True
 
     # Check ownership (created by user)
-    stmt = select(Camera).where(
-        (Camera.id == camera_id)
-    )
+    stmt = select(Camera).where((Camera.id == camera_id))
     result = await db_session.execute(stmt)
     camera = result.scalar_one_or_none()
-    
-    if camera and hasattr(camera, 'created_by_user_id') and camera.created_by_user_id == user.id:
+
+    if camera and hasattr(camera, "created_by_user_id") and camera.created_by_user_id == user.id:
         return True
 
     # Check user_streams junction table for granted access
     stmt = select(UserStream).where(
-        (UserStream.user_id == user.id) &
-        (UserStream.camera_id == camera_id)
+        (UserStream.user_id == user.id) & (UserStream.camera_id == camera_id)
     )
     result = await db_session.execute(stmt)
     return result.scalar_one_or_none() is not None
