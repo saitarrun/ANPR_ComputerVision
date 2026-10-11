@@ -8,10 +8,12 @@ from sqlalchemy import select
 from datetime import timedelta
 import redis.asyncio as aioredis
 import logging
+from typing import Any, cast
 
 from api.deps import get_db_session, get_current_user, get_current_user_id
 from api.schemas.auth import LoginRequest, TokenResponse, UserResponse
 from api.security import (
+    ValidRole,
     hash_password,
     verify_password,
     create_access_token,
@@ -35,7 +37,7 @@ router = APIRouter(prefix="/v1/auth", tags=["auth"])
 async def login(
     request: LoginRequest,
     db: AsyncSession = Depends(get_db_session),
-) -> dict:
+) -> dict[str, Any]:
     """Authenticate user with email and password.
 
     Rate limit: 5 requests per minute per IP
@@ -53,13 +55,16 @@ async def login(
     user = result.scalars().first()
 
     # Verify password
-    if not user or not verify_password(request.password, user.hashed_password):
+    if not user or not verify_password(request.password, str(user.hashed_password)):
         raise AuthenticationError("Invalid email or password")
 
     # Generate tokens
+    role_str = str(user.role)
+    if role_str not in ("viewer", "operator", "admin"):
+        raise AuthenticationError("Invalid user role")
     access_token = create_access_token(
         user_id=str(user.id),
-        role=user.role,
+        role=cast(ValidRole, role_str),
         expires_delta=timedelta(minutes=settings.jwt_expire_minutes),
     )
     refresh_token = create_refresh_token(str(user.id))
@@ -75,9 +80,9 @@ async def login(
 @limiter.limit("3/minute")
 async def register(
     request_obj: Request,
-    request: dict,
+    request: dict[str, Any],
     db: AsyncSession = Depends(get_db_session),
-) -> dict:
+) -> dict[str, Any]:
     """Register a new user.
 
     Rate limit: 3 requests per minute per IP
@@ -123,9 +128,12 @@ async def register(
     await db.refresh(user)
 
     # Generate tokens
+    role_str = str(user.role)
+    if role_str not in ("viewer", "operator", "admin"):
+        raise AuthenticationError("Invalid user role")
     access_token = create_access_token(
         user_id=str(user.id),
-        role=user.role,
+        role=cast(ValidRole, role_str),
         expires_delta=timedelta(minutes=settings.jwt_expire_minutes),
     )
     refresh_token = create_refresh_token(str(user.id))
@@ -139,10 +147,10 @@ async def register(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(
-    request: dict = Depends(get_current_user),
+    request: dict[str, Any] = Depends(get_current_user),
     authorization: str = Header(None),
     db: AsyncSession = Depends(get_db_session),
-) -> dict:
+) -> dict[str, Any]:
     """Refresh access token using refresh token.
 
     Validates:
@@ -175,7 +183,7 @@ async def refresh(
     # Check if token is blacklisted (revoked)
     if raw_token:
         try:
-            redis_client = await aioredis.from_url(settings.redis_url)
+            redis_client = await aioredis.from_url(settings.redis_url)  # type: ignore[no-untyped-call]
             if await is_token_blacklisted(raw_token, redis_client):
                 raise AuthenticationError("Token has been revoked")
         except Exception as e:
@@ -191,9 +199,12 @@ async def refresh(
     if not user:
         raise AuthenticationError("User not found")
 
+    role_str = str(user.role)
+    if role_str not in ("viewer", "operator", "admin"):
+        raise AuthenticationError("Invalid user role")
     access_token = create_access_token(
         user_id=str(user.id),
-        role=user.role,
+        role=cast(ValidRole, role_str),
         expires_delta=timedelta(minutes=settings.jwt_expire_minutes),
     )
 
@@ -208,7 +219,7 @@ async def refresh(
 async def get_current_user_info(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db_session),
-) -> dict:
+) -> dict[str, Any]:
     """Get current user information.
 
     Args:
