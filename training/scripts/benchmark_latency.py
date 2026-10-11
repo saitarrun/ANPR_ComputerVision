@@ -21,7 +21,9 @@ import numpy as np
 from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
 
 def load_test_images(dataset_path: Path, num_images: int = 50) -> list[str]:
@@ -72,7 +74,7 @@ def benchmark_latency(
         latencies.append(elapsed)
 
         if (i + 1) % 20 == 0:
-            logger.info(f"  {i+1}/{num_runs} runs completed")
+            logger.info(f"  {i + 1}/{num_runs} runs completed")
 
     latencies_array = np.array(latencies)
 
