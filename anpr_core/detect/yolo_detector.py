@@ -52,6 +52,7 @@ def _resolve_device() -> str:
     """Resolve device: mps (Apple M-series) → cuda (NVIDIA) → cpu."""
     try:
         import torch
+
         if torch.backends.mps.is_available():
             return "mps"
         elif torch.cuda.is_available():
