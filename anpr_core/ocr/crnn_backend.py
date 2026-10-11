@@ -135,6 +135,7 @@ class CRNNBackend:
         crop_norm = crop_rgb.astype(np.float32) / 255.0
         # Resize to standard 32x128 (CRNN expects H=32)
         import cv2
+
         h, w = 32, 128
         crop_resized = cv2.resize(crop_norm, (w, h))
         # Transpose to (3, H, W)
