@@ -4,11 +4,12 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Dict
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from celery import shared_task
 from sqlalchemy import delete, select
+from sqlalchemy.engine import CursorResult
 import yaml
 
 from api.settings import settings
@@ -28,8 +29,8 @@ with open(config_path, "r") as f:
     retention_config = yaml.safe_load(f)
 
 
-@shared_task(name="privacy.purge_expired_plates", bind=True)
-def purge_expired_plates(self) -> Dict[str, int]:
+@shared_task(name="privacy.purge_expired_plates", bind=True)  # type: ignore[untyped-decorator]
+def purge_expired_plates(self: Any) -> dict[str, Any]:
     """Delete plates older than retention window."""
     deleted_counts = {}
     try:
@@ -41,7 +42,7 @@ def purge_expired_plates(self) -> Dict[str, int]:
     return deleted_counts
 
 
-async def _purge_expired_async() -> Dict[str, int]:
+async def _purge_expired_async() -> dict[str, Any]:
     """Async purge implementation."""
     deleted_counts = {}
     async with db.get_session() as session:
@@ -52,17 +53,17 @@ async def _purge_expired_async() -> Dict[str, int]:
             delete_stmt = delete(Plate).where(
                 (Plate.region_id == region) & (Plate.created_at < cutoff_ts)
             )
-            delete_result = await session.execute(delete_stmt)
+            delete_result = cast("CursorResult[Any]", await session.execute(delete_stmt))
             await session.commit()
 
-            deleted_counts[region] = delete_result.rowcount
-            logger.info(f"Purged {delete_result.rowcount} plates from {region}")
+            deleted_counts[region] = int(delete_result.rowcount or 0)
+            logger.info(f"Purged {deleted_counts[region]} plates from {region}")
 
     return deleted_counts
 
 
-@shared_task(name="privacy.archive_audit_log", bind=True)
-def archive_audit_log(self) -> Dict[str, str]:
+@shared_task(name="privacy.archive_audit_log", bind=True)  # type: ignore[untyped-decorator]
+def archive_audit_log(self: Any) -> dict[str, Any]:
     """Export audit logs to S3 daily with tamper-detection."""
     try:
         import asyncio
@@ -73,7 +74,7 @@ def archive_audit_log(self) -> Dict[str, str]:
         return {"s3_key": "", "rows": 0, "error": str(e)}
 
 
-async def _archive_audit_async() -> Dict[str, str]:
+async def _archive_audit_async() -> dict[str, Any]:
     """Async audit log archival implementation."""
     async with db.get_session() as session:
         archive_age_days = 7
