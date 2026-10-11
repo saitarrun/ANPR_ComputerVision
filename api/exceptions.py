@@ -1,4 +1,5 @@
 """Custom exception classes for ANPR API."""
+
 from typing import Any, Optional
 
 
