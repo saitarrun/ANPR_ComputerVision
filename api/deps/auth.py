@@ -1,4 +1,5 @@
 """Authentication dependencies."""
+
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -70,6 +71,7 @@ async def require_role(*roles: UserRole):
     Returns:
         Dependency function
     """
+
     async def check_role(current_role: UserRole = Depends(get_current_user_role)) -> UserRole:
         if current_role not in roles:
             raise HTTPException(
@@ -77,4 +79,5 @@ async def require_role(*roles: UserRole):
                 detail=f"This action requires one of: {', '.join([r.value for r in roles])}",
             )
         return current_role
+
     return check_role
