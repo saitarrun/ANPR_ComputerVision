@@ -64,7 +64,8 @@ def s3_get_object(
     """Retrieve object from S3/MinIO."""
     try:
         response = s3_client.get_object(Bucket=bucket, Key=key)
-        return response["Body"].read()
+        body: bytes = response["Body"].read()
+        return body
     except ClientError as e:
         if e.response["Error"]["Code"] == "NoSuchKey":
             logger.warning(f"Object not found: {key}")
