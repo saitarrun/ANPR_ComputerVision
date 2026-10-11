@@ -39,14 +39,15 @@ DATASET_CONFIGS = {
 
 def train_single_dataset(dataset_name: str, config: dict[str, str | int]) -> dict[str, str]:
     """Train on a single dataset."""
-    logger.info(f"\n{'='*70}")
+    logger.info(f"\n{'=' * 70}")
     logger.info(f"Training on {dataset_name.upper()}")
     logger.info(f"  YAML: {config['yaml']}")
     logger.info(f"  Epochs: {config['epochs']}, Batch: {config['batch']}")
-    logger.info(f"{'='*70}")
+    logger.info(f"{'=' * 70}")
 
     cmd = [
-        "python3", "-c",
+        "python3",
+        "-c",
         f"""
 from ultralytics import YOLO
 from pathlib import Path
@@ -55,26 +56,26 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-yaml_path = Path("{config['yaml']}").expanduser()
+yaml_path = Path("{config["yaml"]}").expanduser()
 if not yaml_path.exists():
     raise FileNotFoundError(f"Dataset not found: {{yaml_path}}")
 
 model = YOLO("yolov8s.pt")
 results = model.train(
     data=str(yaml_path),
-    epochs={config['epochs']},
+    epochs={config["epochs"]},
     imgsz=640,
-    batch={config['batch']},
+    batch={config["batch"]},
     device="cpu",
     patience=5,
     save=True,
     project="runs/detect",
-    name="{config['name']}",
+    name="{config["name"]}",
     verbose=False,
 )
 
 logger.info(f"✓ Training complete for {dataset_name}")
-"""
+""",
     ]
 
     try:
@@ -115,9 +116,9 @@ def main(datasets: list[str], max_workers: int = 2) -> None:
                 logger.error(f"Batch training error for {dataset}: {e}")
                 results[dataset] = {"status": "exception", "error": str(e)}
 
-    logger.info(f"\n{'='*70}")
+    logger.info(f"\n{'=' * 70}")
     logger.info("BATCH TRAINING RESULTS")
-    logger.info(f"{'='*70}")
+    logger.info(f"{'=' * 70}")
     for ds, result in results.items():
         status_icon = "✓" if result["status"] == "success" else "✗"
         logger.info(f"  {status_icon} {ds}: {result['status']}")
