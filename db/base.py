@@ -1,4 +1,5 @@
 """SQLAlchemy base model and mixins."""
+
 from datetime import datetime
 from typing import Any
 from sqlalchemy import Column, DateTime, String, func
@@ -32,4 +33,6 @@ class TimestampMixin:
     """Mixin for created/updated timestamps."""
 
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
