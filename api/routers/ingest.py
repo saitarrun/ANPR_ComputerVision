@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
 import base64
 import logging
+from typing import Any
 
 from workers.tasks import process_frame
 from api.deps.auth import get_current_user
@@ -97,7 +98,9 @@ async def ingest_frame(
 
 
 @router.get("/task/{task_id}")
-async def get_task_status(task_id: str, user_id: str = Depends(get_current_user_id)) -> dict:
+async def get_task_status(
+    task_id: str, user_id: str = Depends(get_current_user_id)
+) -> dict[str, Any]:
     """Poll task status.
 
     Args:
