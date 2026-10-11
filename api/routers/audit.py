@@ -28,7 +28,7 @@ async def list_audit_log(
     limit: int = Query(100, ge=1, le=1000),
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> list[AuditLogOut]:
     """List audit log entries with optional filters.
 
     Args:
@@ -100,7 +100,7 @@ async def export_audit_log_csv(
     user_id_filter: str | None = Query(None),
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
-):
+) -> StreamingResponse:
     """Export audit log to CSV for compliance.
 
     Args:
