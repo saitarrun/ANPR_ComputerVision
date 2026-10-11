@@ -3,7 +3,7 @@
 import logging
 import json
 from datetime import datetime, timezone
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 
@@ -75,7 +75,7 @@ def audit_log_context(
     request_id: str,
     user_id: Optional[str] = None,
     ip: Optional[str] = None,
-) -> None:
+) -> Iterator[None]:
     """Context manager to set audit logging context.
 
     Usage:
