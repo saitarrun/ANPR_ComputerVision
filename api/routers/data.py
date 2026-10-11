@@ -36,9 +36,7 @@ def validate_uuid(uuid_string: str, field_name: str) -> UUID:
         )
 
 
-async def validate_plate_string(
-    plate_string: str, region_id: UUID, db: AsyncSession
-) -> None:
+async def validate_plate_string(plate_string: str, region_id: UUID, db: AsyncSession) -> None:
     """Validate plate string against region's plate_regex.
 
     Args:
