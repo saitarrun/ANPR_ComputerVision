@@ -12,6 +12,7 @@ from ultralytics import YOLO
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+
 def export_model(model_path: str, output_dir: str = "models") -> bool:
     """Export model to multiple formats."""
     model_path_obj = Path(model_path)
@@ -39,6 +40,7 @@ def export_model(model_path: str, output_dir: str = "models") -> bool:
 
     logger.info("\n✓ Export complete")
     return len(exports) > 0
+
 
 if __name__ == "__main__":
     model_path = "runs/detect/kaggle-plate-detection/weights/best.pt"
