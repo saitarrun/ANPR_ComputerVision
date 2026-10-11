@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 
 class RegionOut(BaseModel):
@@ -48,7 +48,7 @@ class DetectionOut(BaseModel):
     plate_id: str
     frame_timestamp: datetime
     confidence: float
-    bbox: dict
+    bbox: dict[str, Any]
     ocr_backend: str
     quality_score: float
     crop_url: Optional[str] = None
@@ -118,7 +118,7 @@ class ReviewQueueOut(BaseModel):
     detection_id: str
     status: str
     reviewer_id: Optional[str] = None
-    detection_blob: dict
+    detection_blob: dict[str, Any]
     notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -144,7 +144,7 @@ class AuditLogOut(BaseModel):
     resource_type: str
     resource_id: str
     ip_address: str
-    details: dict
+    details: dict[str, Any]
     created_at: datetime
 
     class Config:
