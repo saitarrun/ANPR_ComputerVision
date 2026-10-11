@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-from typing import Set
+from typing import Any, Set
 
 import redis.asyncio as aioredis
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
@@ -24,11 +24,11 @@ async def get_redis_client() -> aioredis.Redis:
     """Get Redis client (lazy singleton)."""
     global redis_client
     if redis_client is None:
-        redis_client = await aioredis.from_url(settings.redis_url)
+        redis_client = await aioredis.from_url(settings.redis_url)  # type: ignore[no-untyped-call]
     return redis_client
 
 
-async def broadcast_to_stream(stream_id: str, message: dict) -> None:
+async def broadcast_to_stream(stream_id: str, message: dict[str, Any]) -> None:
     """Broadcast message to all connected clients for a stream."""
     if stream_id not in active_connections:
         return
@@ -85,7 +85,7 @@ async def verify_ws_token(token: str) -> bool:
 async def websocket_endpoint(
     websocket: WebSocket,
     stream_id: str,
-):
+) -> None:
     """WebSocket endpoint for live stream detections.
 
     Args:
