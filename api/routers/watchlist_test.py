@@ -43,7 +43,7 @@ async def test_create_watchlist_valid_pattern(async_client):
         },
     )
 
-    assert response.status_code in (201, 401, 422)  Allow 401 for missing auth
+    assert response.status_code in (201, 401, 422)  # Allow 401 for missing auth
 
 
 @pytest.mark.asyncio
@@ -69,7 +69,7 @@ async def test_list_watchlist(async_client):
     """Test listing watchlist patterns."""
     response = await async_client.get("/v1/watchlist")
 
-    assert response.status_code in (200, 401)  Allow 200 or 401 for missing auth
+    assert response.status_code in (200, 401)  # Allow 200 or 401 for missing auth
 
 
 @pytest.mark.asyncio
