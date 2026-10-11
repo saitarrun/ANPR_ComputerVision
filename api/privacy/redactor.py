@@ -21,6 +21,7 @@ class FrameRedactor:
         """Initialize face detection model."""
         try:
             from retinaface import RetinaFace
+
             self.face_detector = RetinaFace
             self.has_face_detection = True
         except ImportError:
@@ -55,9 +56,7 @@ class FrameRedactor:
 
         # Redact non-target plates
         if target_plate_region:
-            img_array = self._redact_non_target_plates(
-                img_array, target_plate_region, blur_radius
-            )
+            img_array = self._redact_non_target_plates(img_array, target_plate_region, blur_radius)
 
         # Convert back to JPEG
         redacted_img = Image.fromarray(img_array)
