@@ -58,12 +58,12 @@ async def list_review_queue(
         # Filter by confidence if specified
         detection_blob = item.detection_blob
         if detection_blob:
-            confidence = detection_blob.get('confidence', 0)
+            confidence = detection_blob.get("confidence", 0)
             if confidence_min and confidence < confidence_min:
                 continue
             if confidence_max and confidence > confidence_max:
                 continue
-            if region_id and detection_blob.get('region_id') != region_id:
+            if region_id and detection_blob.get("region_id") != region_id:
                 continue
 
         items.append(
