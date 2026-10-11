@@ -18,6 +18,7 @@ router = APIRouter(prefix="/v1/ingest", tags=["ingest"])
 
 class IngestRequest(BaseModel):
     """Frame ingest request."""
+
     stream_id: str
     frame_b64_jpeg: str
     camera_id: str
@@ -25,6 +26,7 @@ class IngestRequest(BaseModel):
 
 class IngestResponse(BaseModel):
     """Ingest response with task ID."""
+
     task_id: str
     status: str = "queued"
 
@@ -57,7 +59,7 @@ async def ingest_frame(
                 "action": "ingest_attempt",
                 "resource": "ingest/frame",
                 "status": 400,
-            }
+            },
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid frame format")
 
@@ -68,16 +70,16 @@ async def ingest_frame(
         # Enqueue Celery task with encrypted frame
         task = process_frame.delay(request.stream_id, encrypted_frame, request.camera_id)
         logger.info(f"Enqueued frame task={task.id} stream={request.stream_id} user={user_id}")
-        
+
         audit_logger.info(
             "frame_ingested",
             extra={
                 "action": "frame_ingest",
                 "resource": f"ingest/frame/{task.id}",
                 "status": 202,
-            }
+            },
         )
-        
+
         return IngestResponse(task_id=task.id, status="queued")
     except Exception as e:
         logger.error(f"Failed to enqueue task: {e}")
@@ -87,9 +89,11 @@ async def ingest_frame(
                 "action": "ingest_attempt",
                 "resource": "ingest/frame",
                 "status": 500,
-            }
+            },
         )
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to enqueue task")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to enqueue task"
+        )
 
 
 @router.get("/task/{task_id}")
@@ -112,16 +116,16 @@ async def get_task_status(task_id: str, user_id: str = Depends(get_current_user_
         }
         if task.state == "FAILURE":
             result["error"] = str(task.info)
-        
+
         audit_logger.info(
             "task_status_checked",
             extra={
                 "action": "task_poll",
                 "resource": f"ingest/task/{task_id}",
                 "status": 200,
-            }
+            },
         )
-        
+
         return result
     except Exception as e:
         logger.error(f"Failed to get task status: {e}")
@@ -131,6 +135,8 @@ async def get_task_status(task_id: str, user_id: str = Depends(get_current_user_
                 "action": "task_poll",
                 "resource": f"ingest/task/{task_id}",
                 "status": 500,
-            }
+            },
         )
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get task status")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get task status"
+        )
