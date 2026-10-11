@@ -143,9 +143,7 @@ class ANPROrchestrator:
         logger.info("✓ Region postprocessors (IN/EU/US) initialized")
 
         # Confidence gate (M5)
-        self.confidence_gate = ConfidenceGate(
-            min_char_confidence=0.6, min_plate_confidence=0.75
-        )
+        self.confidence_gate = ConfidenceGate(min_char_confidence=0.6, min_plate_confidence=0.75)
         logger.info("✓ Confidence Gate initialized")
 
         self.frame_counter = 0
@@ -265,6 +263,7 @@ class ANPROrchestrator:
                 logger.error(f"OCR error: {e}", exc_info=True)
                 # Fallback: empty result
                 from anpr_core.ocr.fuser import FusedOCRResult
+
                 ocr_results.append(
                     FusedOCRResult(
                         plate_text="",
