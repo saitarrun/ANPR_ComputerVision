@@ -71,6 +71,9 @@ dev = [
     "httpx>=0.28",
     "locust>=2.32",
     "pre-commit>=4.0",
+    "detect-secrets>=1.5",
+    "bandit[toml]>=1.7.5",
+    "pip-audit>=2.10",
     "types-pyyaml>=6.0.12",
     "types-passlib>=1.7.7",
     "types-python-jose>=3.3",
@@ -165,7 +168,7 @@ exclude_lines = [
 
 # ---------- Bandit ----------
 [tool.bandit]
-tests = ["B201", "B301", "B302", "B303", "B304", "B305", "B306", "B307", "B308", "B309", "B310", "B311", "B312", "B313", "B314", "B315", "B316", "B317", "B318", "B319", "B320", "B321", "B322", "B323", "B324", "B325"]
+tests = ["B201", "B301", "B302", "B303", "B304", "B305", "B306", "B307", "B308", "B310", "B311", "B312", "B313", "B314", "B315", "B316", "B317", "B318", "B319", "B320", "B321", "B323", "B324"]
 exclude_dirs = ["tests", "migrations"]
 skips = ["B101"]  # assert_used: allowed in test context
 
