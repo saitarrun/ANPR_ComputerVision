@@ -8,6 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
 import logging
 import uuid
+from typing import Any
 import uvicorn
 
 from api.config import settings
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
     """Redirect HTTP to HTTPS in production."""
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
         if settings.app_env.value == "production":
             if request.url.scheme == "http":
                 url = request.url.replace(scheme="https")
@@ -48,7 +49,7 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add security headers to all responses."""
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
         response = await call_next(request)
 
         # HSTS (HTTP Strict-Transport-Security)
@@ -74,7 +75,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 class AuditLoggingMiddleware(BaseHTTPMiddleware):
     """Middleware to set audit logging context and log security events."""
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
         request_id = request.headers.get("x-request-id", str(uuid.uuid4()))
         client_ip = request.client.host if request.client else "unknown"
 
@@ -125,7 +126,7 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> Any:
     """Startup and shutdown event handler."""
     logger.info("Starting ANPR API...")
     try:
@@ -183,7 +184,7 @@ def create_app() -> FastAPI:
 
     # Request ID middleware
     @app.middleware("http")
-    async def add_request_id(request: Request, call_next):
+    async def add_request_id(request: Request, call_next: Any) -> Any:
         request_id = request.headers.get("x-request-id", str(uuid.uuid4()))
         request.state.request_id = request_id
         response = await call_next(request)
@@ -192,7 +193,7 @@ def create_app() -> FastAPI:
 
     # Rate limit exceeded handler
     @app.exception_handler(RateLimitExceeded)
-    async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> Any:
         return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             content={
@@ -207,12 +208,12 @@ def create_app() -> FastAPI:
 
     # Health check endpoints
     @app.get("/healthz", tags=["health"])
-    async def health() -> dict:
+    async def health() -> dict[str, Any]:
         """Liveness check."""
         return {"status": "ok"}
 
     @app.get("/readyz", tags=["health"])
-    async def readiness() -> dict:
+    async def readiness() -> dict[str, Any]:
         """Readiness check (DB + Redis)."""
         try:
             from db.engine import engine
@@ -228,7 +229,7 @@ def create_app() -> FastAPI:
 
     # Exception handlers
     @app.exception_handler(ANPRException)
-    async def anpr_exception_handler(request: Request, exc: ANPRException):
+    async def anpr_exception_handler(request: Request, exc: ANPRException) -> Any:
         request_id = getattr(request.state, "request_id", "unknown")
         logger.warning(
             f"ANPR Exception: {exc.code} - {exc.message}", extra={"request_id": request_id}
@@ -240,7 +241,7 @@ def create_app() -> FastAPI:
         )
 
     @app.exception_handler(Exception)
-    async def general_exception_handler(request: Request, exc: Exception):
+    async def general_exception_handler(request: Request, exc: Exception) -> Any:
         request_id = getattr(request.state, "request_id", "unknown")
         logger.error(
             f"Unhandled exception: {str(exc)}", exc_info=exc, extra={"request_id": request_id}
