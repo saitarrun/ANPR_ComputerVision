@@ -1,4 +1,5 @@
 """Celery task definitions."""
+
 import base64
 import io
 import logging
