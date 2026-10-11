@@ -17,11 +17,13 @@ from api.config import settings
 
 class PasswordHashError(Exception):
     """Raised when password hashing fails."""
+
     pass
 
 
 class JWTError(Exception):
     """Raised when JWT operations fail."""
+
     pass
 
 
@@ -54,6 +56,7 @@ def validate_password_strength(password: str) -> None:
         PasswordHashError: If password doesn't meet requirements
     """
     import re
+
     if not password:
         raise PasswordHashError("Password cannot be empty")
     if len(password) < 12:
@@ -153,25 +156,25 @@ def encode_jwt(
         raise ValueError("role is required")
     if role not in ("viewer", "operator", "admin"):
         raise ValueError(f"role must be one of: viewer, operator, admin")
-    
+
     secret = secret or settings.jwt_secret
     if not secret or len(secret) < 32:
         raise ValueError("JWT secret must be at least 32 characters")
-    
+
     if exp_seconds is not None and exp_seconds <= 0:
         raise ValueError("exp_seconds must be positive")
-    
+
     # Set default expiry based on token type
     if exp_seconds is None:
         if token_type == "refresh":
             exp_seconds = 604800  # 7 days
         else:
             exp_seconds = 900  # 15 minutes
-    
+
     try:
         now = datetime.now(timezone.utc)
         expire = now + timedelta(seconds=exp_seconds)
-        
+
         payload = {
             "user_id": user_id,
             "role": role,
@@ -182,7 +185,7 @@ def encode_jwt(
             "aud": "anpr-api",
             "iss": "anpr-issuer",
         }
-        
+
         token = jose_jwt.encode(
             payload,
             secret,
@@ -215,11 +218,11 @@ def decode_jwt(
     """
     if not token:
         raise JWTError("Token is required")
-    
+
     secret = secret or settings.jwt_secret
     algorithms = algorithms or [settings.jwt_algorithm]
     audience = audience or "anpr-api"
-    
+
     try:
         payload = jose_jwt.decode(
             token,
@@ -263,11 +266,11 @@ def verify_token_type(
             payload = token_or_payload
         else:
             payload = decode_jwt(token_or_payload, secret)
-        
+
         actual_type = payload.get("type", "access")
         if actual_type != expected_type:
             raise JWTError(f"Expected {expected_type} token, got {actual_type}")
-        
+
         return payload
     except JWTError:
         raise
@@ -297,9 +300,9 @@ def create_access_token(
     """
     if expires_delta is None:
         expires_delta = timedelta(minutes=15)  # 15 minutes = 900 seconds
-    
+
     exp_seconds = int(expires_delta.total_seconds())
-    
+
     return encode_jwt(
         user_id=user_id,
         role=role,
@@ -330,12 +333,12 @@ def create_refresh_token(
         JWTError: If token creation fails
     """
     role = role or "viewer"
-    
+
     if expires_delta is None:
         expires_delta = timedelta(days=7)  # 7 days
-    
+
     exp_seconds = int(expires_delta.total_seconds())
-    
+
     return encode_jwt(
         user_id=user_id,
         role=role,
@@ -478,7 +481,7 @@ def encrypt_data(data: bytes, key: bytes) -> bytes:
     """
     if not data:
         raise ValueError("Data to encrypt cannot be empty")
-    
+
     try:
         cipher = Fernet(key)
         return cipher.encrypt(data)
@@ -501,7 +504,7 @@ def decrypt_data(encrypted_data: bytes, key: bytes) -> bytes:
     """
     if not encrypted_data:
         raise ValueError("Encrypted data cannot be empty")
-    
+
     try:
         cipher = Fernet(key)
         return cipher.decrypt(encrypted_data)
