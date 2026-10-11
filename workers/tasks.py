@@ -29,8 +29,10 @@ def _get_orchestrator() -> ANPROrchestrator:
     return _orchestrator
 
 
-@celery_app.task(name="process_frame", bind=True)
-def process_frame(self: Any, stream_id: str, frame_bytes_encrypted: bytes, camera_id: str) -> dict:
+@celery_app.task(name="process_frame", bind=True)  # type: ignore[untyped-decorator]
+def process_frame(
+    self: Any, stream_id: str, frame_bytes_encrypted: bytes, camera_id: str
+) -> dict[str, Any]:
     """
     Process a frame through the ANPR pipeline (M2–M5).
 
@@ -120,8 +122,8 @@ def process_frame(self: Any, stream_id: str, frame_bytes_encrypted: bytes, camer
         }
 
 
-@celery_app.task(name="check_watchlist_match")
-def check_watchlist_match(plate_id: str) -> dict:
+@celery_app.task(name="check_watchlist_match")  # type: ignore[untyped-decorator]
+def check_watchlist_match(plate_id: str) -> dict[str, Any]:
     """Check if detected plate matches any watchlist entries.
 
     Args:
@@ -134,8 +136,8 @@ def check_watchlist_match(plate_id: str) -> dict:
     return {"matched": False}
 
 
-@celery_app.task(name="purge_expired_detections")
-def purge_expired_detections() -> dict:
+@celery_app.task(name="purge_expired_detections")  # type: ignore[untyped-decorator]
+def purge_expired_detections() -> dict[str, Any]:
     """Nightly task: purge old detections per retention policy.
 
     Returns:
@@ -145,8 +147,8 @@ def purge_expired_detections() -> dict:
     return {"deleted_count": 0}
 
 
-@celery_app.task(name="archive_audit_log_to_s3")
-def archive_audit_log_to_s3() -> dict:
+@celery_app.task(name="archive_audit_log_to_s3")  # type: ignore[untyped-decorator]
+def archive_audit_log_to_s3() -> dict[str, Any]:
     """Nightly task: export audit log to S3, then delete old records.
 
     Returns:
