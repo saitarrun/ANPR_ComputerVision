@@ -1,4 +1,5 @@
 """User-region assignment model (multi-tenant access grant)."""
+
 from sqlalchemy import Column, String, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID
 from db.base import DeclarativeBase
@@ -19,4 +20,6 @@ class UserRegionAssignment(DeclarativeBase):  # type: ignore[misc]
     role = Column(String(20), nullable=False, default="viewer")
 
     def __repr__(self) -> str:
-        return f"<UserRegionAssignment user={self.user_id} region={self.region_id} role={self.role}>"
+        return (
+            f"<UserRegionAssignment user={self.user_id} region={self.region_id} role={self.role}>"
+        )
