@@ -55,12 +55,12 @@ def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = 
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
+    encoded: str = jwt.encode(
         to_encode,
         settings.jwt_secret,
         algorithm=settings.jwt_algorithm,
     )
-    return encoded_jwt
+    return encoded
 
 
 def decode_access_token(token: str) -> dict[str, Any] | None:
@@ -73,7 +73,7 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
         Decoded payload dict if valid, None if invalid or expired.
     """
     try:
-        payload = jwt.decode(
+        payload: dict[str, Any] = jwt.decode(
             token,
             settings.jwt_secret,
             algorithms=[settings.jwt_algorithm],
@@ -97,9 +97,9 @@ def create_refresh_token(data: dict[str, Any]) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_expire_days)
     to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(
+    encoded: str = jwt.encode(
         to_encode,
         settings.jwt_secret,
         algorithm=settings.jwt_algorithm,
     )
-    return encoded_jwt
+    return encoded
