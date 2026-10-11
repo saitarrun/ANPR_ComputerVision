@@ -1,5 +1,6 @@
 """Authentication dependencies."""
 
+from typing import Any
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -12,7 +13,7 @@ from db.models import User
 
 async def get_current_user(
     authorization: str = Header(None),
-) -> dict:
+) -> dict[str, Any]:
     """Extract and verify JWT from Authorization header.
 
     Args:
@@ -40,10 +41,10 @@ async def get_current_user(
         )
 
 
-async def get_current_user_id(token: dict = Depends(get_current_user)) -> str:
+async def get_current_user_id(token: dict[str, Any] = Depends(get_current_user)) -> str:
     """Extract user ID from token."""
     user_id = token.get("user_id")
-    if not user_id:
+    if not isinstance(user_id, str):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token: missing user ID",
@@ -51,7 +52,7 @@ async def get_current_user_id(token: dict = Depends(get_current_user)) -> str:
     return user_id
 
 
-async def get_current_user_role(token: dict = Depends(get_current_user)) -> UserRole:
+async def get_current_user_role(token: dict[str, Any] = Depends(get_current_user)) -> UserRole:
     """Extract user role from token."""
     role_str = token.get("role")
     if not role_str:
@@ -62,7 +63,7 @@ async def get_current_user_role(token: dict = Depends(get_current_user)) -> User
     return UserRole(role_str)
 
 
-async def require_role(*roles: UserRole):
+async def require_role(*roles: UserRole) -> Any:
     """Dependency factory for role-based access control.
 
     Args:
