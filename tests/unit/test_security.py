@@ -278,7 +278,7 @@ class TestPasswordHashing:
 
     def test_hash_password_valid(self):
         """Test hashing a valid password."""
-        password = "secure-password-123!"
+        password = "Secure-password-123!"
         hashed = hash_password(password)
         assert isinstance(hashed, str)
         assert len(hashed) > len(password)  # Hashed is longer
@@ -291,18 +291,18 @@ class TestPasswordHashing:
 
     def test_hash_password_too_short(self):
         """Test that short password is rejected."""
-        with pytest.raises(PasswordHashError, match="8 characters"):
+        with pytest.raises(PasswordHashError, match="12 characters"):
             hash_password("short")
 
     def test_verify_password_valid(self):
         """Test password verification with correct password."""
-        password = "correct-password-123"
+        password = "Correct-password-123!"
         hashed = hash_password(password)
         assert verify_password(password, hashed)
 
     def test_verify_password_invalid(self):
         """Test password verification with wrong password."""
-        password = "correct-password-123"
+        password = "Correct-password-123!"
         hashed = hash_password(password)
         assert not verify_password("wrong-password", hashed)
 
@@ -313,7 +313,7 @@ class TestPasswordHashing:
 
     def test_hash_password_different_hashes(self):
         """Test that same password produces different hashes (bcrypt salt)."""
-        password = "same-password-123"
+        password = "Same-password-123!"
         hash1 = hash_password(password)
         hash2 = hash_password(password)
         assert hash1 != hash2  # Different salts
