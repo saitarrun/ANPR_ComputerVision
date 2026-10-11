@@ -1,4 +1,5 @@
 """Application configuration from environment variables."""
+
 import os
 from enum import Enum
 from typing import Literal
@@ -37,7 +38,9 @@ class Settings(BaseSettings):
 
     # ---- Auth ----
     jwt_secret: str = Field(..., validation_alias="JWT_SECRET", min_length=32)
-    jwt_algorithm: Literal["HS256", "RS256"] = Field(default="HS256", validation_alias="JWT_ALGORITHM")
+    jwt_algorithm: Literal["HS256", "RS256"] = Field(
+        default="HS256", validation_alias="JWT_ALGORITHM"
+    )
     jwt_expire_minutes: int = Field(default=60, validation_alias="JWT_EXPIRE_MINUTES")
     refresh_token_expire_days: int = Field(default=7, validation_alias="JWT_REFRESH_EXPIRY_DAYS")
 
