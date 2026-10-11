@@ -2,8 +2,10 @@
 
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Literal
+from typing import Any, Optional, Literal
 from jose import jwt as jose_jwt
+from jose.exceptions import ExpiredSignatureError as JoseExpiredSignatureError
+from jose.exceptions import JWTError as JoseJWTError
 from passlib.context import CryptContext
 from cryptography.fernet import Fernet
 
@@ -201,7 +203,7 @@ def decode_jwt(
     secret: Optional[str] = None,
     algorithms: Optional[list[str]] = None,
     audience: Optional[str] = None,
-) -> dict:
+) -> dict[str, Any]:
     """Decode and verify JWT token.
 
     Args:
@@ -232,19 +234,19 @@ def decode_jwt(
             issuer="anpr-issuer",
         )
         return payload
-    except jose_jwt.ExpiredSignatureError as e:
+    except JoseExpiredSignatureError as e:
         raise JWTError("Token expired") from e
-    except jose_jwt.JWTError as e:
+    except JoseJWTError as e:
         raise JWTError(f"Invalid token: {str(e)}") from e
     except Exception as e:
         raise JWTError(f"Failed to decode JWT: {str(e)}") from e
 
 
 def verify_token_type(
-    token_or_payload,
+    token_or_payload: str | dict[str, Any],
     expected_type: TokenType,
     secret: Optional[str] = None,
-) -> dict:
+) -> dict[str, Any]:
     """Decode JWT and verify it matches expected type.
 
     Can accept either a token string or a decoded payload dict.
@@ -348,7 +350,7 @@ def create_refresh_token(
     )
 
 
-def verify_token(token: str) -> dict:
+def verify_token(token: str) -> dict[str, Any]:
     """Verify and decode JWT token.
 
     Args:
@@ -376,7 +378,10 @@ def extract_user_id_from_token(token: str) -> str:
         JWTError: If token is invalid
     """
     payload = verify_token(token)
-    return payload.get("user_id")
+    user_id = payload.get("user_id")
+    if not isinstance(user_id, str):
+        raise JWTError("Token missing user_id")
+    return user_id
 
 
 def extract_role_from_token(token: str) -> str:
@@ -392,7 +397,10 @@ def extract_role_from_token(token: str) -> str:
         JWTError: If token is invalid
     """
     payload = verify_token(token)
-    return payload.get("role")
+    role = payload.get("role")
+    if not isinstance(role, str):
+        raise JWTError("Token missing role")
+    return role
 
 
 # ============================================================================
@@ -400,7 +408,7 @@ def extract_role_from_token(token: str) -> str:
 # ============================================================================
 
 
-async def add_token_to_blacklist(token: str, redis_client) -> None:
+async def add_token_to_blacklist(token: str, redis_client: Any) -> None:
     """Add token to blacklist (revocation list).
 
     Stores token JTI in Redis, expires at token's expiration time.
@@ -433,7 +441,7 @@ async def add_token_to_blacklist(token: str, redis_client) -> None:
         raise JWTError(f"Failed to blacklist token: {str(e)}") from e
 
 
-async def is_token_blacklisted(token: str, redis_client) -> bool:
+async def is_token_blacklisted(token: str, redis_client: Any) -> bool:
     """Check if token has been revoked (blacklisted).
 
     Args:
@@ -528,7 +536,7 @@ def generate_encryption_key() -> bytes:
 
 async def get_user_accessible_regions(
     user_id: str,
-    db,
+    db: Any,
 ) -> list[str]:
     """Get list of region IDs that user has access to.
 
