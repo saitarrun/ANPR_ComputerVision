@@ -1,4 +1,5 @@
 """Celery application setup."""
+
 from celery import Celery
 from api.config import settings
 
