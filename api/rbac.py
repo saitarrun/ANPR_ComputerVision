@@ -1,14 +1,14 @@
 """Role-Based Access Control (RBAC) layer (F15)."""
 
 from enum import Enum
-from typing import List, Callable, Optional
+from typing import Any, List, Callable, Optional
 from functools import wraps
 
 from fastapi import HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.config import UserRole
-from api.deps import get_current_user, get_db
+from api.deps import get_current_user
 from db.models import User, Camera
 
 
@@ -53,9 +53,9 @@ ROLE_PERMISSIONS = {
 
 
 async def require_role(
-    required_roles: List[str] = None,
+    required_roles: Optional[List[str]] = None,
     required_action: Optional[RBACAction] = None,
-) -> Callable:
+) -> Callable[..., Any]:
     """Dependency to enforce role-based access.
 
     Args:
