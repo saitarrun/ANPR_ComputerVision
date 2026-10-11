@@ -174,9 +174,7 @@ class TestResourceAuthorization:
         assert data["region_id"] == str(test_region.id)
 
     @pytest.mark.integration
-    async def test_list_detections_requires_auth(
-        self, client, test_region, db_session
-    ):
+    async def test_list_detections_requires_auth(self, client, test_region, db_session):
         """Test that /v1/detections requires authentication."""
         response = client.get("/v1/detections")
         assert response.status_code == 401
@@ -194,7 +192,14 @@ class TestResourceAuthorization:
 
     @pytest.mark.integration
     async def test_list_detections_with_region_access(
-        self, client, auth_token_factory, test_user, test_region, test_stream, test_plate, db_session
+        self,
+        client,
+        auth_token_factory,
+        test_user,
+        test_region,
+        test_stream,
+        test_plate,
+        db_session,
     ):
         """Test that users with region access can list detections."""
         from db.models import UserRegionAssignment, Detection
@@ -245,9 +250,7 @@ class TestResourceAuthorization:
         assert response.status_code == 403
 
     @pytest.mark.integration
-    async def test_list_plates_requires_auth(
-        self, client, test_region, db_session
-    ):
+    async def test_list_plates_requires_auth(self, client, test_region, db_session):
         """Test that /v1/plates requires authentication."""
         response = client.get("/v1/plates")
         assert response.status_code == 401
