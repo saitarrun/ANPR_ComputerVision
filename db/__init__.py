@@ -1,4 +1,5 @@
 """Database module."""
+
 from db.base import DeclarativeBase, IDMixin, TimestampMixin
 from db.engine import get_db, init_db, close_db, engine, AsyncSessionLocal
 from db.models import (
@@ -32,4 +33,3 @@ __all__ = [
     "AuditLog",
     "APIKey",
 ]
-
