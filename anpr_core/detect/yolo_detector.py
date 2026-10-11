@@ -18,7 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from ultralytics import YOLO
+from typing import Any
+from ultralytics import YOLO  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
 
@@ -93,19 +94,16 @@ class YOLODetector:
         self.imgsz = imgsz
 
         # Resolve model path
-        if model_path is None:
-            model_path = self._find_production_model()
-        else:
-            model_path = Path(model_path)
+        resolved_path = Path(self._find_production_model() if model_path is None else model_path)
 
-        self.model_name = str(model_path)
+        self.model_name = str(resolved_path)
 
         # Auto-detect device if needed
         if device == "auto":
             device = _resolve_device()
 
-        logger.info(f"Loading detector from {model_path} on device {device}")
-        self.model = YOLO(str(model_path))
+        logger.info(f"Loading detector from {resolved_path} on device {device}")
+        self.model = YOLO(str(resolved_path))
         self.model.to(device)
         logger.info(f"✓ Detector ready: {Path(self.model_name).name}")
 
@@ -123,7 +121,7 @@ class YOLODetector:
         )
         return "yolov8s.pt"
 
-    def detect(self, image: np.ndarray) -> list[Detection]:
+    def detect(self, image: np.ndarray[Any, Any]) -> list[Detection]:
         """Detect license plates in image.
 
         Args:
