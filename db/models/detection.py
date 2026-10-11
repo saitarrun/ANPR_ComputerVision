@@ -1,4 +1,5 @@
 """Detection model (single frame detection event)."""
+
 from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from db.base import DeclarativeBase, IDMixin, TimestampMixin
