@@ -32,7 +32,9 @@ class TestRegionsEndpoints:
         assert "detail" in data
 
     @pytest.mark.integration
-    async def test_list_regions_with_valid_auth(self, client, auth_token_factory, test_region, test_user, db_session):
+    async def test_list_regions_with_valid_auth(
+        self, client, auth_token_factory, test_region, test_user, db_session
+    ):
         """Test listing regions with valid auth token."""
         from db.models import UserRegionAssignment
 
@@ -59,7 +61,9 @@ class TestRegionsEndpoints:
         assert region["name"] == test_region.name
 
     @pytest.mark.integration
-    async def test_list_regions_with_operator_role(self, client, auth_token_factory, test_region, operator_user, db_session):
+    async def test_list_regions_with_operator_role(
+        self, client, auth_token_factory, test_region, operator_user, db_session
+    ):
         """Test that operator role can list regions."""
         from db.models import UserRegionAssignment
 
@@ -80,7 +84,9 @@ class TestRegionsEndpoints:
         assert isinstance(data, list)
 
     @pytest.mark.integration
-    async def test_list_regions_with_admin_role(self, client, auth_token_factory, test_region, admin_user, db_session):
+    async def test_list_regions_with_admin_role(
+        self, client, auth_token_factory, test_region, admin_user, db_session
+    ):
         """Test that admin role can list regions."""
         from db.models import UserRegionAssignment
 
@@ -178,7 +184,9 @@ class TestCamerasEndpoints:
     """GET /v1/regions/{region_id}/cameras endpoint tests."""
 
     @pytest.mark.integration
-    async def test_list_cameras_with_valid_region(self, client, auth_token_factory, test_region, test_stream, test_user, db_session):
+    async def test_list_cameras_with_valid_region(
+        self, client, auth_token_factory, test_region, test_stream, test_user, db_session
+    ):
         """Test listing cameras for a valid region."""
         from db.models import UserRegionAssignment
 
@@ -199,15 +207,15 @@ class TestCamerasEndpoints:
         data = response.json()
         assert isinstance(data, list)
         assert len(data) >= 1
-        camera = next(
-            (c for c in data if c["id"] == str(test_stream.id)), None
-        )
+        camera = next((c for c in data if c["id"] == str(test_stream.id)), None)
         assert camera is not None
         assert camera["name"] == test_stream.name
         assert camera["region_id"] == str(test_region.id)
 
     @pytest.mark.integration
-    async def test_list_cameras_invalid_uuid_format(self, client, auth_token_factory, test_user, db_session):
+    async def test_list_cameras_invalid_uuid_format(
+        self, client, auth_token_factory, test_user, db_session
+    ):
         """Test that invalid UUID format returns 422."""
         token = auth_token_factory(user_id=str(test_user.id), role="viewer")
         client.headers = {"Authorization": f"Bearer {token}"}
@@ -218,7 +226,9 @@ class TestCamerasEndpoints:
         assert "detail" in data
 
     @pytest.mark.integration
-    async def test_list_cameras_invalid_uuid_string(self, client, auth_token_factory, test_user, db_session):
+    async def test_list_cameras_invalid_uuid_string(
+        self, client, auth_token_factory, test_user, db_session
+    ):
         """Test that invalid UUID string returns 422."""
         token = auth_token_factory(user_id=str(test_user.id), role="viewer")
         client.headers = {"Authorization": f"Bearer {token}"}
@@ -229,7 +239,9 @@ class TestCamerasEndpoints:
         assert "Invalid region ID format" in str(data.get("detail", ""))
 
     @pytest.mark.integration
-    async def test_list_cameras_region_not_found(self, client, auth_token_factory, test_region, test_user, db_session):
+    async def test_list_cameras_region_not_found(
+        self, client, auth_token_factory, test_region, test_user, db_session
+    ):
         """Test that non-existent region returns 403 (user doesn't have access)."""
         from db.models import UserRegionAssignment
 
@@ -249,9 +261,10 @@ class TestCamerasEndpoints:
         response = client.get(f"/v1/regions/{nonexistent_id}/cameras")
         assert response.status_code == 403
 
-
     @pytest.mark.integration
-    async def test_list_cameras_response_schema(self, client, auth_token_factory, test_region, test_stream, test_user, db_session):
+    async def test_list_cameras_response_schema(
+        self, client, auth_token_factory, test_region, test_stream, test_user, db_session
+    ):
         """Test that camera response includes required fields."""
         from db.models import UserRegionAssignment
 
@@ -286,12 +299,12 @@ class TestCamerasEndpoints:
             "updated_at",
         ]
         for field in required_fields:
-            assert (
-                field in camera
-            ), f"Missing field '{field}' in camera response"
+            assert field in camera, f"Missing field '{field}' in camera response"
 
     @pytest.mark.integration
-    async def test_list_cameras_uuid_string_conversion(self, client, auth_token_factory, test_region, test_user, db_session):
+    async def test_list_cameras_uuid_string_conversion(
+        self, client, auth_token_factory, test_region, test_user, db_session
+    ):
         """Test that region_id in response is a string (UUID conversion)."""
         from db.models import UserRegionAssignment
 
@@ -316,9 +329,10 @@ class TestCamerasEndpoints:
             assert isinstance(camera["region_id"], str)
             assert camera["region_id"] == str(test_region.id)
 
-
     @pytest.mark.integration
-    async def test_list_cameras_ordered_by_name(self, client, auth_token_factory, test_region, test_user, db_session):
+    async def test_list_cameras_ordered_by_name(
+        self, client, auth_token_factory, test_region, test_user, db_session
+    ):
         """Test that cameras are sorted by name."""
         from db.models import Camera, UserRegionAssignment
 
@@ -360,9 +374,10 @@ class TestCamerasEndpoints:
         # Check that names are in sorted order
         assert names == sorted(names)
 
-
     @pytest.mark.integration
-    async def test_list_cameras_uppercase_uuid(self, client, auth_token_factory, test_region, test_stream, test_user, db_session):
+    async def test_list_cameras_uppercase_uuid(
+        self, client, auth_token_factory, test_region, test_stream, test_user, db_session
+    ):
         """Test that uppercase UUID is accepted and normalized."""
         from db.models import UserRegionAssignment
 
@@ -384,7 +399,9 @@ class TestCamerasEndpoints:
         assert response.status_code == 200
 
     @pytest.mark.integration
-    async def test_list_cameras_with_hyphens_uuid(self, client, auth_token_factory, test_region, test_stream, test_user, db_session):
+    async def test_list_cameras_with_hyphens_uuid(
+        self, client, auth_token_factory, test_region, test_stream, test_user, db_session
+    ):
         """Test that UUID with hyphens is accepted."""
         from db.models import UserRegionAssignment
 
