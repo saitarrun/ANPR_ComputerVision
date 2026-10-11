@@ -1,4 +1,5 @@
 """User model (identity)."""
+
 from enum import Enum
 from sqlalchemy import Column, String, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID
