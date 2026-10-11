@@ -23,7 +23,9 @@ import yaml
 from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
 
 def load_config(config_path: str) -> dict:
@@ -79,7 +81,9 @@ def baseline_training(model: YOLO, dataset_yaml: Path, config: dict) -> tuple[st
     return str(baseline_model_path), baseline_metrics
 
 
-def full_training(model: YOLO, dataset_yaml: Path, config: dict, baseline_metrics: dict) -> tuple[str, dict]:
+def full_training(
+    model: YOLO, dataset_yaml: Path, config: dict, baseline_metrics: dict
+) -> tuple[str, dict]:
     logger.info("\n" + "=" * 70)
     logger.info("FULL TRAINING (Phase 2: 100 epochs with augmentation)")
     logger.info("=" * 70)
@@ -114,7 +118,9 @@ def full_training(model: YOLO, dataset_yaml: Path, config: dict, baseline_metric
     }
 
     logger.info(f"  mAP@0.5: {metrics_dict['test_mAP50']:.4f}")
-    logger.info(f"  Improvement: +{(metrics_dict['test_mAP50'] - baseline_metrics.get('baseline_mAP50', 0)):.4f}")
+    logger.info(
+        f"  Improvement: +{(metrics_dict['test_mAP50'] - baseline_metrics.get('baseline_mAP50', 0)):.4f}"
+    )
 
     # mlflow.log_metrics(metrics_dict)
 
@@ -164,7 +170,9 @@ def main(phase: str = "full", config_path: str | None = None) -> None:
 
         if phase in ["full", "all"]:
             model = YOLO(config["detector"]["model"])
-            best_model_path, full_metrics = full_training(model, dataset_yaml, config, baseline_metrics)
+            best_model_path, full_metrics = full_training(
+                model, dataset_yaml, config, baseline_metrics
+            )
 
             exports = export_model(best_model_path)
             full_metrics["exports"] = exports
@@ -177,7 +185,17 @@ def main(phase: str = "full", config_path: str | None = None) -> None:
                 # mlflow.log_metric("m2_acceptance", 0.0)
 
             results_file = Path("detector_results_m2.json")
-            results_file.write_text(json.dumps({"best_model": str(best_model_path), "baseline_metrics": baseline_metrics, "full_metrics": full_metrics, "exports": exports}, indent=2))
+            results_file.write_text(
+                json.dumps(
+                    {
+                        "best_model": str(best_model_path),
+                        "baseline_metrics": baseline_metrics,
+                        "full_metrics": full_metrics,
+                        "exports": exports,
+                    },
+                    indent=2,
+                )
+            )
             logger.info(f"\n✓ Results saved to {results_file}")
 
     finally:
