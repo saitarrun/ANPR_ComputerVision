@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import AsyncGenerator
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator, AsyncIterator
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -36,7 +37,8 @@ class Database:
             autoflush=False,
         )
 
-    async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
+    @asynccontextmanager
+    async def get_session(self) -> AsyncIterator[AsyncSession]:
         """Yield a database session for dependency injection."""
         async with self.SessionLocal() as session:
             yield session
