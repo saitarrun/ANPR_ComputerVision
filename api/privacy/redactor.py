@@ -2,8 +2,8 @@
 
 import io
 import logging
-from typing import Optional, Tuple
-from PIL import Image
+from typing import Any, Optional, Tuple
+from PIL import Image, ImageFilter
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ class FrameRedactor:
     - Returns JPEG bytes.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize face detection model."""
         try:
             from retinaface import RetinaFace
@@ -64,7 +64,9 @@ class FrameRedactor:
         redacted_img.save(jpeg_buffer, format="JPEG", quality=90)
         return jpeg_buffer.getvalue()
 
-    def _redact_faces(self, img_array: np.ndarray, blur_radius: int) -> np.ndarray:
+    def _redact_faces(
+        self, img_array: np.ndarray[Any, Any], blur_radius: int
+    ) -> np.ndarray[Any, Any]:
         """Detect and blur faces.
 
         Args:
@@ -86,8 +88,7 @@ class FrameRedactor:
                     # Blur region
                     face_region = img_pil.crop((x1, y1, x2, y2))
                     face_region = face_region.filter(
-                        Image.BLUR,
-                        radius=blur_radius,
+                        ImageFilter.GaussianBlur(radius=blur_radius),
                     )
                     img_pil.paste(face_region, (x1, y1))
 
@@ -100,10 +101,10 @@ class FrameRedactor:
 
     def _redact_non_target_plates(
         self,
-        img_array: np.ndarray,
+        img_array: np.ndarray[Any, Any],
         target_region: Tuple[int, int, int, int],
         blur_radius: int,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Blur all rectangular regions except target plate.
 
         Args:
