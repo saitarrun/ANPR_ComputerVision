@@ -15,7 +15,17 @@ from api.exceptions import ANPRException
 from api.logging import audit_log_context, audit_logger
 from api.rate_limiter import limiter
 from db.engine import init_db, close_db
-from api.routers import auth, ingest, websocket, data, debug, watchlist, review, audit, settings as settings_router
+from api.routers import (
+    auth,
+    ingest,
+    websocket,
+    data,
+    debug,
+    watchlist,
+    review,
+    audit,
+    settings as settings_router,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,17 +52,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
 
         # HSTS (HTTP Strict-Transport-Security)
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
-        
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains; preload"
+        )
+
         # Prevent MIME type sniffing
         response.headers["X-Content-Type-Options"] = "nosniff"
-        
+
         # Deny embedding in frames
         response.headers["X-Frame-Options"] = "DENY"
-        
+
         # Content Security Policy: restrict to same-origin resources
         response.headers["Content-Security-Policy"] = "default-src 'self'"
-        
+
         # Prevent referrer leaking
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
@@ -65,13 +77,14 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = request.headers.get("x-request-id", str(uuid.uuid4()))
         client_ip = request.client.host if request.client else "unknown"
-        
+
         # Extract user ID from JWT if available
         user_id = None
         auth_header = request.headers.get("authorization", "")
         if auth_header.startswith("Bearer "):
             try:
                 from api.security import decode_jwt
+
                 token = auth_header[7:]
                 payload = decode_jwt(token, settings.jwt_secret)
                 user_id = payload.get("sub")
@@ -82,10 +95,10 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
             request.state.request_id = request_id
             request.state.user_id = user_id
             request.state.client_ip = client_ip
-            
+
             response = await call_next(request)
             response.headers["X-Request-ID"] = request_id
-            
+
             # Log auth attempts
             if request.url.path == "/v1/auth/login" and request.method == "POST":
                 audit_logger.info(
@@ -94,9 +107,9 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
                         "action": "login_attempt",
                         "status": response.status_code,
                         "resource": "auth/login",
-                    }
+                    },
                 )
-            
+
             # Log token refreshes
             if request.url.path == "/v1/auth/refresh" and request.method == "POST":
                 audit_logger.info(
@@ -105,9 +118,9 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
                         "action": "token_refresh",
                         "status": response.status_code,
                         "resource": "auth/refresh",
-                    }
+                    },
                 )
-            
+
             return response
 
 
@@ -203,18 +216,23 @@ def create_app() -> FastAPI:
         """Readiness check (DB + Redis)."""
         try:
             from db.engine import engine
+
             async with engine.begin() as conn:
                 await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
             return {"status": "ready"}
         except Exception as e:
             logger.error(f"Readiness check failed: {e}")
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Service unavailable") from e
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Service unavailable"
+            ) from e
 
     # Exception handlers
     @app.exception_handler(ANPRException)
     async def anpr_exception_handler(request: Request, exc: ANPRException):
         request_id = getattr(request.state, "request_id", "unknown")
-        logger.warning(f"ANPR Exception: {exc.code} - {exc.message}", extra={"request_id": request_id})
+        logger.warning(
+            f"ANPR Exception: {exc.code} - {exc.message}", extra={"request_id": request_id}
+        )
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message, "details": exc.details}},
@@ -224,7 +242,9 @@ def create_app() -> FastAPI:
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception):
         request_id = getattr(request.state, "request_id", "unknown")
-        logger.error(f"Unhandled exception: {str(exc)}", exc_info=exc, extra={"request_id": request_id})
+        logger.error(
+            f"Unhandled exception: {str(exc)}", exc_info=exc, extra={"request_id": request_id}
+        )
 
         # Return specific error messages for common exception types
         exc_type = type(exc).__name__
@@ -238,12 +258,21 @@ def create_app() -> FastAPI:
             message = "You do not have permission to perform this action."
             status_code = 403
         else:
-            message = "An unexpected error occurred. Please contact support with request ID: " + request_id
+            message = (
+                "An unexpected error occurred. Please contact support with request ID: "
+                + request_id
+            )
             status_code = 500
 
         return JSONResponse(
             status_code=status_code,
-            content={"error": {"code": exc_type, "message": message, "details": {"request_id": request_id}}},
+            content={
+                "error": {
+                    "code": exc_type,
+                    "message": message,
+                    "details": {"request_id": request_id},
+                }
+            },
             headers={"X-Request-ID": request_id},
         )
 
