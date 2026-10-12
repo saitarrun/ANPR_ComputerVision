@@ -44,16 +44,9 @@ class TestWebSocketAuth:
                 pass
 
     @pytest.mark.integration
-    def test_websocket_connect_expired_token(self, client, jwt_secret: str, test_stream):
+    def test_websocket_connect_expired_token(self, client, expired_token_factory, test_stream):
         """Test WebSocket connection with expired token."""
-        from api.security import encode_jwt
-
-        expired_token = encode_jwt(
-            user_id="test-user",
-            role="viewer",
-            secret=jwt_secret,
-            exp_seconds=-1,
-        )
+        expired_token = expired_token_factory(user_id="test-user", role="viewer")
         with pytest.raises(Exception):
             with client.websocket_connect(
                 f"/v1/stream/{test_stream.id}", headers={"Authorization": f"Bearer {expired_token}"}
