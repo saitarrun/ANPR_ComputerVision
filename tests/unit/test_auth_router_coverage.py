@@ -92,8 +92,9 @@ class TestLogin:
         with pytest.raises(AuthenticationError):
             await auth_router.login(LoginRequest(email="u@example.com", password="bad"), db=db)
 
-    async def test_invalid_role_401(self):
+    async def test_invalid_role_401(self, monkeypatch):
         db = _FakeSession([_FakeResult(items=[_user(role="superadmin")])])
+        monkeypatch.setattr(auth_router, "verify_password", lambda p, h: True)
         with pytest.raises(AuthenticationError) as ei:
             await auth_router.login(LoginRequest(email="u@example.com", password="secret"), db=db)
         assert "role" in ei.value.message
@@ -101,6 +102,7 @@ class TestLogin:
     async def test_ok_returns_tokens(self, monkeypatch):
         user = _user(role="operator")
         db = _FakeSession([_FakeResult(items=[user])])
+        monkeypatch.setattr(auth_router, "verify_password", lambda p, h: True)
         monkeypatch.setattr(auth_router, "create_access_token", lambda *a, **kw: "AT")
         monkeypatch.setattr(auth_router, "create_refresh_token", lambda *a, **kw: "RT")
         out = await auth_router.login(LoginRequest(email="u@example.com", password="secret"), db=db)
@@ -219,6 +221,7 @@ class TestRefresh:
             raise RuntimeError("redis down")
 
         monkeypatch.setattr(auth_router, "aioredis", SimpleNamespace(from_url=_down))
+        monkeypatch.setattr(auth_router, "create_access_token", lambda *a, **kw: "access-token")
         db = _FakeSession([_FakeResult(items=[user])])
         out = await auth_router.refresh(payload=RefreshRequest(refresh_token="tok"), db=db)
         assert out["access_token"] == "access-token"
