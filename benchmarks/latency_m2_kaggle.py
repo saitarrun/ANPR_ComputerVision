@@ -12,9 +12,14 @@ import numpy as np
 from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
-def benchmark_model(model_path: str, num_iterations: int = 100, imgsz: tuple[int, int] = (640, 480)) -> dict[str, float]:
+
+def benchmark_model(
+    model_path: str, num_iterations: int = 100, imgsz: tuple[int, int] = (640, 480)
+) -> dict[str, float]:
     """Benchmark model latency."""
     logger.info(f"Loading model: {model_path}")
     model = YOLO(model_path)
@@ -36,7 +41,7 @@ def benchmark_model(model_path: str, num_iterations: int = 100, imgsz: tuple[int
         latencies.append(latency_ms)
 
         if (i + 1) % 25 == 0:
-            logger.info(f"  {i+1}/{num_iterations} iterations...")
+            logger.info(f"  {i + 1}/{num_iterations} iterations...")
 
     latencies_array = np.array(latencies)
 
@@ -55,6 +60,7 @@ def benchmark_model(model_path: str, num_iterations: int = 100, imgsz: tuple[int
     logger.info(f"  mean: {metrics['mean_ms']:.1f}ms (±{metrics['std_ms']:.1f}ms)")
 
     return metrics
+
 
 if __name__ == "__main__":
     model_path = "runs/detect/kaggle-plate-detection/weights/best.pt"
