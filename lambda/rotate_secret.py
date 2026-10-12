@@ -49,8 +49,7 @@ def lambda_handler(event, context):
     secret_version_stage = event.get("SecretVersionStage", "AWSPENDING")
 
     logger.info(
-        f"Starting rotation step '{step}' for secret {secret_id} "
-        f"with token {client_request_token}"
+        f"Starting rotation step '{step}' for secret {secret_id} with token {client_request_token}"
     )
 
     # Get secret metadata
@@ -172,9 +171,7 @@ def create_secret(secret_id: str, client_request_token: str, rds_instance_id: st
             VersionStages=["AWSPENDING"],
         )
 
-        logger.info(
-            f"Created AWSPENDING version {client_request_token} for secret {secret_id}"
-        )
+        logger.info(f"Created AWSPENDING version {client_request_token} for secret {secret_id}")
 
     except ClientError as e:
         logger.error(f"Failed to create secret version: {e}")
@@ -210,9 +207,7 @@ def set_secret(
         new_password = pending_dict["password"]
         master_username = pending_dict.get("username", current_secret.get("username"))
 
-        logger.info(
-            f"Updating RDS master password for {rds_instance_id} user {master_username}"
-        )
+        logger.info(f"Updating RDS master password for {rds_instance_id} user {master_username}")
 
         # Update RDS master password (idempotent with retries)
         max_retries = 3
@@ -246,9 +241,7 @@ def set_secret(
 
                     time.sleep(backoff_seconds)
                 else:
-                    logger.error(
-                        f"Failed to update RDS password (attempt {attempt}): {e}"
-                    )
+                    logger.error(f"Failed to update RDS password (attempt {attempt}): {e}")
                     raise
 
     except ClientError as e:
@@ -285,9 +278,7 @@ def test_secret(
         pending_dict = json.loads(pending_secret["SecretString"])
 
         # Get RDS instance endpoint
-        db_instance = rds_client.describe_db_instances(
-            DBInstanceIdentifier=rds_instance_id
-        )
+        db_instance = rds_client.describe_db_instances(DBInstanceIdentifier=rds_instance_id)
         if not db_instance["DBInstances"]:
             raise ValueError(f"RDS instance {rds_instance_id} not found")
 
@@ -366,10 +357,7 @@ def finish_secret(secret_id: str, client_request_token: str):
 
         # Update version stages: promote AWSPENDING to AWSCURRENT
         if current_version:
-            logger.info(
-                f"Moving AWSCURRENT stage from {current_version} to "
-                f"{client_request_token}"
-            )
+            logger.info(f"Moving AWSCURRENT stage from {current_version} to {client_request_token}")
             secrets_client.update_secret_version_stage(
                 SecretId=secret_id,
                 VersionStage="AWSCURRENT",
@@ -377,9 +365,7 @@ def finish_secret(secret_id: str, client_request_token: str):
                 RemoveFromVersionId=current_version,
             )
         else:
-            logger.warning(
-                "No current version found, adding AWSCURRENT to pending version"
-            )
+            logger.warning("No current version found, adding AWSCURRENT to pending version")
             secrets_client.update_secret_version_stage(
                 SecretId=secret_id,
                 VersionStage="AWSCURRENT",
@@ -442,9 +428,7 @@ def log_rotation_failure(secret_id: str, step: str, error_message: str):
 
         # Create log stream if it doesn't exist
         try:
-            cloudwatch.create_log_stream(
-                logGroupName=log_group, logStreamName=log_stream
-            )
+            cloudwatch.create_log_stream(logGroupName=log_group, logStreamName=log_stream)
         except cloudwatch.exceptions.ResourceAlreadyExistsException:
             pass
 
