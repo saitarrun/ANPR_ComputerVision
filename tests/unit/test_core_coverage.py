@@ -354,3 +354,67 @@ class TestSecurityTokenHelpers:
 
         with pytest.raises(JWTError, match="missing role"):
             extract_role_from_token(self._signed({"user_id": "u"}))
+
+
+class TestPasswordHelpers:
+    def test_validate_strong_password(self):
+        from api.security import validate_password_strength
+
+        validate_password_strength("SecurePass123!")
+
+    def test_validate_empty(self):
+        from api.security import PasswordHashError, validate_password_strength
+
+        with pytest.raises(PasswordHashError, match="cannot be empty"):
+            validate_password_strength("")
+
+    def test_validate_too_short(self):
+        from api.security import PasswordHashError, validate_password_strength
+
+        with pytest.raises(PasswordHashError, match="at least 12 characters"):
+            validate_password_strength("Short1!")
+
+    def test_validate_no_uppercase(self):
+        from api.security import PasswordHashError, validate_password_strength
+
+        with pytest.raises(PasswordHashError, match="uppercase"):
+            validate_password_strength("securepass123!")
+
+    def test_validate_no_lowercase(self):
+        from api.security import PasswordHashError, validate_password_strength
+
+        with pytest.raises(PasswordHashError, match="lowercase"):
+            validate_password_strength("SECUREPASS123!")
+
+    def test_validate_no_digit(self):
+        from api.security import PasswordHashError, validate_password_strength
+
+        with pytest.raises(PasswordHashError, match="digit"):
+            validate_password_strength("SecurePass!!!")
+
+    def test_validate_no_special(self):
+        from api.security import PasswordHashError, validate_password_strength
+
+        with pytest.raises(PasswordHashError, match="special character"):
+            validate_password_strength("SecurePass123")
+
+    def test_hash_and_verify(self):
+        from api.security import hash_password, verify_password
+
+        hashed = hash_password("SecurePass123!")
+        assert hashed != "SecurePass123!"
+        assert verify_password("SecurePass123!", hashed) is True
+        assert verify_password("WrongPass123!", hashed) is False
+
+    def test_hash_weak_password_raises(self):
+        from api.security import PasswordHashError, hash_password
+
+        with pytest.raises(PasswordHashError):
+            hash_password("weak")
+
+    def test_verify_empty(self):
+        from api.security import hash_password, verify_password
+
+        hashed = hash_password("SecurePass123!")
+        assert verify_password("", hashed) is False
+        assert verify_password("SecurePass123!", "") is False
