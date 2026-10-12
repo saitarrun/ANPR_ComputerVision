@@ -4,12 +4,17 @@ import asyncio
 import json
 import logging
 from typing import Any, Set
+from uuid import UUID
 
 import redis.asyncio as aioredis
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
-from jose import jwt
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from api.config import settings
+from api.deps import get_db_session
+from api.security import decode_jwt, JWTError
+from db.models import Camera
 
 logger = logging.getLogger(__name__)
 
@@ -74,8 +79,11 @@ async def redis_listener(stream_id: str) -> None:
 async def verify_ws_token(token: str) -> bool:
     """Verify JWT token for WebSocket auth."""
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
+        payload = decode_jwt(token, settings.jwt_secret)
         return payload.get("user_id") is not None
+    except JWTError as e:
+        logger.warning(f"Invalid token: {e}")
+        return False
     except Exception as e:
         logger.warning(f"Invalid token: {e}")
         return False
@@ -85,12 +93,14 @@ async def verify_ws_token(token: str) -> bool:
 async def websocket_endpoint(
     websocket: WebSocket,
     stream_id: str,
+    db: AsyncSession = Depends(get_db_session),
 ) -> None:
     """WebSocket endpoint for live stream detections.
 
     Args:
         websocket: WebSocket connection
         stream_id: Stream identifier
+        db: Database session
 
     Authorization: Bearer token in Authorization header (not query param).
     """
@@ -100,6 +110,20 @@ async def websocket_endpoint(
     if not token or not await verify_ws_token(token):
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
         logger.warning(f"WebSocket auth failed for stream={stream_id}")
+        return
+
+    # Reject connections to streams that do not exist
+    try:
+        stream_uuid = UUID(str(stream_id))
+    except (ValueError, TypeError, AttributeError):
+        stream_uuid = None
+    camera = None
+    if stream_uuid is not None:
+        result = await db.execute(select(Camera).where(Camera.id == stream_uuid))
+        camera = result.scalar_one_or_none()
+    if camera is None:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Stream not found")
+        logger.warning(f"WebSocket connection to unknown stream={stream_id}")
         return
 
     await websocket.accept()
