@@ -67,9 +67,7 @@ class QualityGate:
 
         # Check 1: Detection confidence
         if detection_conf < self.min_detection_conf:
-            issues.append(
-                f"detection_conf={detection_conf:.2f} < {self.min_detection_conf}"
-            )
+            issues.append(f"detection_conf={detection_conf:.2f} < {self.min_detection_conf}")
 
         # Check 2: Blur (Laplacian variance)
         blur_score = self._blur_score(crop)
@@ -86,9 +84,7 @@ class QualityGate:
         aspect = w / h if h > 0 else 0
         min_aspect, max_aspect = self.aspect_ratio_range
         if not (min_aspect <= aspect <= max_aspect):
-            issues.append(
-                f"aspect_ratio={aspect:.2f} not in [{min_aspect}, {max_aspect}]"
-            )
+            issues.append(f"aspect_ratio={aspect:.2f} not in [{min_aspect}, {max_aspect}]")
 
         # Check 5: Minimum character height
         if h < self.min_char_height_px:
