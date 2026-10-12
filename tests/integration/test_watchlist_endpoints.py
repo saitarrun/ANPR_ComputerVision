@@ -187,3 +187,55 @@ class TestWatchlistMatching:
         data = response.json()
         assert "match_count" in data
         assert data["match_count"] == 0
+
+
+@pytest.mark.integration
+class TestUpdateWatchlistEntry:
+    """PUT /v1/watchlist/{id} endpoint tests."""
+
+    def _create(self, operator_client):
+        r = operator_client.post("/v1/watchlist", json={"plate_pattern": "KA*"})
+        assert r.status_code == 201
+        return r.json()["id"]
+
+    def test_update_watchlist_entry(self, operator_client):
+        wid = self._create(operator_client)
+        r = operator_client.put(f"/v1/watchlist/{wid}", json={"plate_pattern": "MH*"})
+        assert r.status_code == 200
+        assert r.json()["plate_pattern"] == "MH*"
+
+    def test_update_watchlist_not_found(self, operator_client):
+        r = operator_client.put(
+            "/v1/watchlist/00000000-0000-4000-8000-000000009999",
+            json={"plate_pattern": "MH*"},
+        )
+        assert r.status_code == 404
+
+    def test_update_watchlist_invalid_uuid(self, operator_client):
+        r = operator_client.put("/v1/watchlist/not-a-uuid", json={"plate_pattern": "MH*"})
+        assert r.status_code == 404
+
+    def test_update_watchlist_empty_pattern(self, operator_client):
+        wid = self._create(operator_client)
+        r = operator_client.put(f"/v1/watchlist/{wid}", json={"plate_pattern": "  "})
+        assert r.status_code == 400
+
+    def test_update_watchlist_viewer_forbidden(self, authenticated_client):
+        r = authenticated_client.put(
+            "/v1/watchlist/00000000-0000-4000-8000-000000009999",
+            json={"plate_pattern": "MH*"},
+        )
+        assert r.status_code == 403
+
+    def test_get_watchlist_entry(self, operator_client):
+        wid = self._create(operator_client)
+        r = operator_client.get(f"/v1/watchlist/{wid}")
+        assert r.status_code == 200
+        assert r.json()["id"] == wid
+
+    def test_get_watchlist_not_found(self, operator_client):
+        r = operator_client.get("/v1/watchlist/00000000-0000-4000-8000-000000009999")
+        assert r.status_code == 404
+
+    def test_get_watchlist_invalid_uuid(self, operator_client):
+        assert operator_client.get("/v1/watchlist/not-a-uuid").status_code == 404
