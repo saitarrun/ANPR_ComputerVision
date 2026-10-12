@@ -1,17 +1,18 @@
 """Authentication endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Body
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import timedelta
+from uuid import UUID
 import redis.asyncio as aioredis
 import logging
 from typing import Any, cast
 
 from api.deps import get_db_session, get_current_user, get_current_user_id
-from api.schemas.auth import LoginRequest, TokenResponse, UserResponse
+from api.schemas.auth import LoginRequest, TokenResponse, UserResponse, RefreshRequest
 from api.security import (
     ValidRole,
     hash_password,
@@ -22,6 +23,8 @@ from api.security import (
     verify_token_type,
     add_token_to_blacklist,
     is_token_blacklisted,
+    decode_jwt,
+    JWTError,
 )
 from api.config import settings, UserRole
 from api.exceptions import AuthenticationError, ValidationError
@@ -73,6 +76,8 @@ async def login(
         "access_token": access_token,
         "refresh_token": refresh_token,
         "expires_in": settings.jwt_expire_minutes * 60,
+        "user_id": str(user.id),
+        "role": role_str,
     }
 
 
@@ -147,19 +152,19 @@ async def register(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(
-    request: dict[str, Any] = Depends(get_current_user),
-    authorization: str = Header(None),
+    payload: RefreshRequest | None = Body(default=None),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
     """Refresh access token using refresh token.
+
+    The refresh token is provided in the JSON request body.
 
     Validates:
     - Token type is "refresh" (not access)
     - Token is not blacklisted (revoked)
 
     Args:
-        request: Token payload (from Authorization header)
-        authorization: Raw Authorization header for blacklist check
+        payload: JSON body containing the refresh token
         db: Database session
 
     Returns:
@@ -168,31 +173,37 @@ async def refresh(
     Raises:
         AuthenticationError: If token type is wrong, blacklisted, or user not found
     """
-    user_id = request.get("user_id")
-    token_type = request.get("type", "access")
+    # No body at all -> 401 (mirrors "missing credentials" semantics)
+    if payload is None:
+        raise AuthenticationError("Refresh token is required")
 
-    # Verify this is a refresh token, not an access token
-    if token_type != "refresh":
-        raise AuthenticationError("Invalid token type: expected refresh token")
+    raw_token = payload.refresh_token
 
-    # Extract raw token for blacklist check
-    raw_token = ""
-    if authorization and authorization.startswith("Bearer "):
-        raw_token = authorization.split(" ")[1]
+    # Decode and verify the token; invalid/expired -> 401
+    try:
+        token_payload = verify_token_type(raw_token, "refresh")
+    except JWTError as e:
+        raise AuthenticationError(f"Invalid refresh token: {e}") from e
+
+    user_id = token_payload.get("user_id")
 
     # Check if token is blacklisted (revoked)
-    if raw_token:
-        try:
-            redis_client = await aioredis.from_url(settings.redis_url)  # type: ignore[no-untyped-call]
-            if await is_token_blacklisted(raw_token, redis_client):
-                raise AuthenticationError("Token has been revoked")
-        except Exception as e:
-            if "Token has been revoked" in str(e):
-                raise
-            # Log but don't fail if Redis is unavailable; allow refresh to proceed
-            logger.warning(f"Redis check failed: {e}")
+    try:
+        redis_client = await aioredis.from_url(settings.redis_url)  # type: ignore[no-untyped-call]
+        if await is_token_blacklisted(raw_token, redis_client):
+            raise AuthenticationError("Token has been revoked")
+    except AuthenticationError:
+        raise
+    except Exception as e:
+        # Log but don't fail if Redis is unavailable; allow refresh to proceed
+        logger.warning(f"Redis check failed: {e}")
 
-    stmt = select(User).where(User.id == user_id)
+    try:
+        user_uuid = UUID(str(user_id))
+    except (ValueError, TypeError, AttributeError) as e:
+        raise AuthenticationError("Invalid user in refresh token") from e
+
+    stmt = select(User).where(User.id == user_uuid)
     result = await db.execute(stmt)
     user = result.scalars().first()
 
@@ -210,8 +221,10 @@ async def refresh(
 
     return {
         "access_token": access_token,
-        "refresh_token": request.get("refresh_token", ""),
+        "refresh_token": raw_token,
         "expires_in": settings.jwt_expire_minutes * 60,
+        "user_id": str(user.id),
+        "role": role_str,
     }
 
 
@@ -229,7 +242,12 @@ async def get_current_user_info(
     Returns:
         User information
     """
-    stmt = select(User).where(User.id == user_id)
+    try:
+        user_uuid = UUID(str(user_id))
+    except (ValueError, TypeError, AttributeError) as e:
+        raise AuthenticationError("Invalid user identity") from e
+
+    stmt = select(User).where(User.id == user_uuid)
     result = await db.execute(stmt)
     user = result.scalars().first()
 
@@ -240,6 +258,6 @@ async def get_current_user_info(
         "id": str(user.id),
         "email": user.email,
         "username": user.username,
-        "role": user.role.value,
+        "role": str(user.role),
         "created_at": user.created_at,
     }
