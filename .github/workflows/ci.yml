@@ -190,7 +190,7 @@ jobs:
 
       # Scan Docker image for vulnerabilities
       - name: Trivy image scan
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.33.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           format: sarif
