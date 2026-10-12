@@ -13,13 +13,21 @@ import numpy as np
 from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 
 class M2KaggleEvaluation:
     def __init__(self):
-        self.model_path = Path("runs/detect/runs/detect/kaggle-plate-detection/weights/best.pt")
-        self.dataset_yaml = Path("/Users/saitarrunpitta/.cache/anpr-datasets/dataset.yaml")
+        self.model_path = Path(
+            "runs/detect/runs/detect/kaggle-plate-detection/weights/best.pt"
+        )
+        self.dataset_yaml = Path(
+            "/Users/saitarrunpitta/.cache/anpr-datasets/dataset.yaml"
+        )
         self.model = None
+
     def load_model(self):
         if not self.model_path.exists():
             logger.error(f"Model not found: {self.model_path}")
@@ -35,7 +43,7 @@ class M2KaggleEvaluation:
 
         logger.info("\nValidating on validation set...")
         try:
-            results = self.model.val(data=str(self.dataset_yaml), split='val')
+            results = self.model.val(data=str(self.dataset_yaml), split="val")
             metrics = {
                 "val_mAP50": float(results.box.map50),
                 "val_mAP75": float(results.box.map75),
@@ -59,7 +67,7 @@ class M2KaggleEvaluation:
 
         logger.info("\nTesting on test set...")
         try:
-            results = self.model.val(data=str(self.dataset_yaml), split='test')
+            results = self.model.val(data=str(self.dataset_yaml), split="test")
             metrics = {
                 "test_mAP50": float(results.box.map50),
                 "test_mAP75": float(results.box.map75),
@@ -98,7 +106,7 @@ class M2KaggleEvaluation:
             latencies.append(latency_ms)
 
             if (i + 1) % 25 == 0:
-                logger.info(f"  {i+1}/{num_iterations} iterations...")
+                logger.info(f"  {i + 1}/{num_iterations} iterations...")
 
         latencies = np.array(latencies)
         metrics = {
@@ -112,7 +120,9 @@ class M2KaggleEvaluation:
         logger.info(f"  p50: {metrics['latency_p50_ms']:.1f}ms")
         logger.info(f"  p95: {metrics['latency_p95_ms']:.1f}ms")
         logger.info(f"  p99: {metrics['latency_p99_ms']:.1f}ms")
-        logger.info(f"  mean: {metrics['latency_mean_ms']:.1f}ms (±{metrics['latency_std_ms']:.1f}ms)")
+        logger.info(
+            f"  mean: {metrics['latency_mean_ms']:.1f}ms (±{metrics['latency_std_ms']:.1f}ms)"
+        )
 
         return metrics
 
@@ -137,9 +147,9 @@ class M2KaggleEvaluation:
 
     def check_acceptance_criteria(self, results: dict) -> bool:
         """Check M2 acceptance criteria."""
-        logger.info("\n" + "="*70)
+        logger.info("\n" + "=" * 70)
         logger.info("M2 ACCEPTANCE CRITERIA (Kaggle Dataset)")
-        logger.info("="*70)
+        logger.info("=" * 70)
 
         criteria = {
             "test mAP@0.5 ≥ 0.80": results.get("test_mAP50", 0) >= 0.80,
@@ -159,9 +169,9 @@ class M2KaggleEvaluation:
 
 
 def main():
-    logger.info("="*70)
+    logger.info("=" * 70)
     logger.info("M2 KAGGLE PLATE DETECTION - COMPLETE EVALUATION")
-    logger.info("="*70)
+    logger.info("=" * 70)
 
     evaluator = M2KaggleEvaluation()
 
