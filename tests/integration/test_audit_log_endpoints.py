@@ -152,7 +152,7 @@ class TestAuditLogCreation:
             json={
                 "name": "Audit Test Stream",
                 "rtsp_url": "rtsp://example.com/stream",
-                "region_id": test_region.id,
+                "region_id": str(test_region.id),
             },
         )
         if response.status_code == 201:
