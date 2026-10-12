@@ -15,7 +15,9 @@ import numpy as np
 from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 class M2EvaluationHarness:
@@ -32,7 +34,9 @@ class M2EvaluationHarness:
             logger.info(f"Loading detector: {self.detector_model}")
             self.detector = YOLO(self.detector_model)
 
-    def evaluate_detector(self, dataset_yaml: str, dataset_name: str = "test_set") -> dict[str, float]:
+    def evaluate_detector(
+        self, dataset_yaml: str, dataset_name: str = "test_set"
+    ) -> dict[str, float]:
         logger.info(f"\nEvaluating detector on {dataset_name}...")
 
         try:
@@ -53,7 +57,9 @@ class M2EvaluationHarness:
             logger.error(f"Evaluation failed: {e}")
             return {}
 
-    def benchmark_latency(self, num_iterations: int = 100, image_size: tuple[int, int] = (640, 480)) -> dict[str, float]:
+    def benchmark_latency(
+        self, num_iterations: int = 100, image_size: tuple[int, int] = (640, 480)
+    ) -> dict[str, float]:
         logger.info(f"\nBenchmarking latency ({num_iterations} iterations)...")
 
         latencies = []
@@ -76,7 +82,9 @@ class M2EvaluationHarness:
             "latency_mean_ms": float(np.mean(latencies)),
         }
 
-        logger.info(f"  p50: {metrics['latency_p50_ms']:.1f}ms, p95: {metrics['latency_p95_ms']:.1f}ms")
+        logger.info(
+            f"  p50: {metrics['latency_p50_ms']:.1f}ms, p95: {metrics['latency_p95_ms']:.1f}ms"
+        )
 
         return metrics
 
@@ -124,7 +132,12 @@ def check_m2_acceptance_criteria(results: dict) -> bool:
     return all_passed
 
 
-def main(model: str = "runs/detect/detector-v1/weights/best.pt", golden_set: str = "golden_in_small", output_file: str = "eval_m2_results.json", quick: bool = False) -> None:
+def main(
+    model: str = "runs/detect/detector-v1/weights/best.pt",
+    golden_set: str = "golden_in_small",
+    output_file: str = "eval_m2_results.json",
+    quick: bool = False,
+) -> None:
     logger.info("=" * 70)
     logger.info("M2 EVALUATION: Detector Fine-Tuning")
     logger.info("=" * 70)
@@ -163,4 +176,6 @@ if __name__ == "__main__":
     parser.add_argument("--quick", action="store_true")
     args = parser.parse_args()
 
-    main(model=args.model, golden_set=args.set, output_file=args.output, quick=args.quick)
+    main(
+        model=args.model, golden_set=args.set, output_file=args.output, quick=args.quick
+    )
