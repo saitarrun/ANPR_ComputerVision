@@ -86,17 +86,19 @@ class TestUserModel:
         from api.security import hash_password
 
         # Invalid role should fail or be rejected at ORM level
-        user = User(
-            id=uuid.UUID("00000000-0000-4000-8000-000000000114"),
-            email="admin@example.com",
-            username="user5",
-            hashed_password=hash_password("TestPassword123!"),
-            role="superuser",  # Invalid - will fail
-            is_active="Y",
-        )
-        db_session.add(user)
-        # May fail at commit or during add depending on model constraints
+        # (the model's @validates raises ValueError at construction time,
+        # so construction must live inside the raises block)
         with pytest.raises((IntegrityError, StatementError, ValueError)):
+            user = User(
+                id=uuid.UUID("00000000-0000-4000-8000-000000000114"),
+                email="admin@example.com",
+                username="user5",
+                hashed_password=hash_password("TestPassword123!"),
+                role="superuser",  # Invalid - will fail
+                is_active="Y",
+            )
+            db_session.add(user)
+            # May fail at commit or during add depending on model constraints
             await db_session.commit()
 
     @pytest.mark.asyncio
