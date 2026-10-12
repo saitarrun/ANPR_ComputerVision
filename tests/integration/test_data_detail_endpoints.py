@@ -120,3 +120,56 @@ class TestRegionAccessEnforcement:
         client.headers = {"Authorization": f"Bearer {token}"}
         r = client.get("/v1/detections")
         assert r.status_code == 403
+
+
+class TestPlateDateFilters:
+    def test_filter_from_date(
+        self, client, auth_token_factory, test_user, test_plate, region_access
+    ):
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+        r = client.get("/v1/plates?from=2020-01-01T00:00:00Z")
+        assert r.status_code == 200
+
+    def test_filter_to_date(self, client, auth_token_factory, test_user, test_plate, region_access):
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+        r = client.get("/v1/plates?to=2030-01-01T00:00:00Z")
+        assert r.status_code == 200
+        assert any(p["plate_string"] == "KA01AB1234" for p in r.json())
+
+    def test_filter_invalid_date_ignored(
+        self, client, auth_token_factory, test_user, test_plate, region_access
+    ):
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+        r = client.get("/v1/plates?from=not-a-date")
+        assert r.status_code == 200
+
+    def test_filter_by_camera_id(
+        self,
+        client,
+        auth_token_factory,
+        test_user,
+        test_plate,
+        test_stream,
+        region_access,
+    ):
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+        r = client.get(f"/v1/plates?camera_id={test_stream.id}")
+        assert r.status_code == 200
+
+    def test_filter_by_region_id_param(
+        self,
+        client,
+        auth_token_factory,
+        test_user,
+        test_plate,
+        test_region,
+        region_access,
+    ):
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+        r = client.get(f"/v1/plates?region_id={test_region.id}")
+        assert r.status_code == 200
