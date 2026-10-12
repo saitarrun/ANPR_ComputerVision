@@ -98,3 +98,25 @@ class TestPlateFilters:
         r = client.get("/v1/plates?limit=1&offset=0")
         assert r.status_code == 200
         assert len(r.json()) <= 1
+
+
+class TestRegionAccessEnforcement:
+    """403 paths for DB users without region assignments."""
+
+    def test_list_plates_no_region_access(self, client, auth_token_factory, test_user, test_plate):
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+        r = client.get("/v1/plates")
+        assert r.status_code == 403
+
+    def test_get_plate_no_region_access(self, client, auth_token_factory, test_user, test_plate):
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+        r = client.get(f"/v1/plates/{test_plate.id}")
+        assert r.status_code == 403
+
+    def test_list_detections_no_region_access(self, client, auth_token_factory, test_user):
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+        r = client.get("/v1/detections")
+        assert r.status_code == 403
