@@ -129,7 +129,9 @@ class ANPROrchestrator:
         logger.info("✓ Plate Tracker (ByteTrack) initialized")
 
         # Multi-frame voting (M4)
-        self.voter = CharacterVoter(min_votes=3, min_vote_fraction=0.67, confidence_method="mean")
+        # min_votes=2: a 2-of-3 majority wins the character position. Requiring
+        # unanimity (3/3) would mark every disagreed position unconfident ("_").
+        self.voter = CharacterVoter(min_votes=2, min_vote_fraction=0.67, confidence_method="mean")
         logger.info("✓ Character Voter initialized")
 
         # Region classification (M5)
