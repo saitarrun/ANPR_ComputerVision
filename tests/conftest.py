@@ -373,8 +373,7 @@ def assert_status(client):
 
     def _assert(response, expected_status: int):
         assert response.status_code == expected_status, (
-            f"Expected {expected_status}, got {response.status_code}. "
-            f"Response: {response.text}"
+            f"Expected {expected_status}, got {response.status_code}. Response: {response.text}"
         )
 
     return _assert
