@@ -62,9 +62,7 @@ def normalize_plate(
 
     # Perspective transform
     M = cv2.getPerspectiveTransform(corners, dst_pts)
-    normalized: np.ndarray[Any, Any] = cv2.warpPerspective(
-        crop, M, (PLATE_WIDTH, PLATE_HEIGHT)
-    )
+    normalized: np.ndarray[Any, Any] = cv2.warpPerspective(crop, M, (PLATE_WIDTH, PLATE_HEIGHT))
 
     return normalized
 
