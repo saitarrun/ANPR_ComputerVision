@@ -211,8 +211,7 @@ def set_secret(
         master_username = pending_dict.get("username", current_secret.get("username"))
 
         logger.info(
-            f"Updating RDS master password for {rds_instance_id} "
-            f"user {master_username}"
+            f"Updating RDS master password for {rds_instance_id} user {master_username}"
         )
 
         # Update RDS master password (idempotent with retries)
@@ -229,10 +228,14 @@ def set_secret(
 
             except ClientError as e:
                 error_code = e.response.get("Error", {}).get("Code", "Unknown")
-                if error_code in [
-                    "InvalidDBInstanceState",
-                    "DBInstanceNotFound",
-                ] and attempt < max_retries:
+                if (
+                    error_code
+                    in [
+                        "InvalidDBInstanceState",
+                        "DBInstanceNotFound",
+                    ]
+                    and attempt < max_retries
+                ):
                     # Transient error, retry after exponential backoff
                     backoff_seconds = 2**attempt
                     logger.warning(
@@ -409,7 +412,7 @@ def validate_password(password: str) -> bool:
         logger.error(f"Password length invalid: {len(password)}")
         return False
 
-    forbidden = ['/', '"', "\\", "@"]
+    forbidden = ["/", '"', "\\", "@"]
     if any(char in password for char in forbidden):
         logger.error("Password contains forbidden characters")
         return False
