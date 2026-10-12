@@ -32,6 +32,7 @@ def orchestrator() -> ANPROrchestrator:
 
 
 @pytest.mark.integration
+@pytest.mark.timeout(300)
 class TestPipelineOrchestrator:
     """Test full M3–M5 pipeline."""
 
@@ -114,6 +115,7 @@ class TestPipelineOrchestrator:
 
 
 @pytest.mark.integration
+@pytest.mark.timeout(300)
 class TestQualityGate:
     """Test M3 quality gating."""
 
@@ -147,6 +149,7 @@ class TestQualityGate:
 
 
 @pytest.mark.integration
+@pytest.mark.timeout(300)
 class TestRegionClassification:
     """Test M5 region classification."""
 
@@ -165,6 +168,7 @@ class TestRegionClassification:
 
 
 @pytest.mark.integration
+@pytest.mark.timeout(300)
 class TestConfidenceGating:
     """Test M5 confidence gating."""
 
@@ -196,6 +200,7 @@ class TestConfidenceGating:
 
 
 @pytest.mark.integration
+@pytest.mark.timeout(300)
 class TestMultiFrameVoting:
     """Test M4 multi-frame voting."""
 
