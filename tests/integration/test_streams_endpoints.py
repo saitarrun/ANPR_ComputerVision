@@ -68,7 +68,7 @@ class TestCreateStream:
             json={
                 "name": "New Stream",
                 "rtsp_url": "rtsp://example.com/stream1",
-                "region_id": test_region.id,
+                "region_id": str(test_region.id),
             },
         )
         assert response.status_code == 201
@@ -85,7 +85,7 @@ class TestCreateStream:
             json={
                 "name": "New Stream",
                 "rtsp_url": "rtsp://example.com/stream1",
-                "region_id": test_region.id,
+                "region_id": str(test_region.id),
             },
         )
         assert response.status_code == 403
@@ -97,7 +97,7 @@ class TestCreateStream:
             "/v1/streams",
             json={
                 "rtsp_url": "rtsp://example.com/stream1",
-                "region_id": test_region.id,
+                "region_id": str(test_region.id),
             },
         )
         assert response.status_code == 422
@@ -109,7 +109,7 @@ class TestCreateStream:
             "/v1/streams",
             json={
                 "name": "New Stream",
-                "region_id": test_region.id,
+                "region_id": str(test_region.id),
             },
         )
         assert response.status_code == 422
@@ -135,7 +135,7 @@ class TestCreateStream:
             json={
                 "name": "New Stream",
                 "rtsp_url": "rtsp://example.com/stream1",
-                "region_id": test_region.id,
+                "region_id": str(test_region.id),
             },
         )
         assert response.status_code == 401
@@ -150,9 +150,9 @@ class TestGetStreamDetail:
         response = authenticated_client.get(f"/v1/streams/{test_stream.id}")
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == test_stream.id
+        assert data["id"] == str(test_stream.id)
         assert data["name"] == test_stream.name
-        assert data["rtsp_url"] == test_stream.rtsp_url
+        assert data["rtsp_url"] == test_stream.url
 
     @pytest.mark.integration
     def test_get_stream_not_found(self, authenticated_client):
