@@ -2,12 +2,15 @@
 
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 from starlette.middleware.base import BaseHTTPMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
 from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
 import logging
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 import uvicorn
 
@@ -22,6 +25,7 @@ from api.routers import (
     websocket,
     data,
     debug,
+    streams,
     watchlist,
     review,
     audit,
@@ -29,6 +33,17 @@ from api.routers import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Prometheus metrics
+HTTP_REQUESTS_TOTAL = Counter(
+    "http_requests_total",
+    "Total number of HTTP requests",
+    ["method", "path", "status_code"],
+)
+DB_CONNECTIONS_ACTIVE = Counter(
+    "db_connections_total",
+    "Total database connections opened",
+)
 
 
 class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
@@ -189,6 +204,11 @@ def create_app() -> FastAPI:
         request.state.request_id = request_id
         response = await call_next(request)
         response.headers["x-request-id"] = request_id
+        HTTP_REQUESTS_TOTAL.labels(
+            method=request.method,
+            path=request.url.path,
+            status_code=str(response.status_code),
+        ).inc()
         return response
 
     # Rate limit exceeded handler
@@ -210,7 +230,12 @@ def create_app() -> FastAPI:
     @app.get("/healthz", tags=["health"])
     async def health() -> dict[str, Any]:
         """Liveness check."""
-        return {"status": "ok"}
+        return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+    @app.get("/metrics", tags=["health"])
+    async def metrics() -> Response:
+        """Prometheus metrics exposition."""
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     @app.get("/readyz", tags=["health"])
     async def readiness() -> dict[str, Any]:
@@ -282,12 +307,37 @@ def create_app() -> FastAPI:
     app.include_router(ingest.router)
     app.include_router(websocket.router)
     app.include_router(data.router)
+    app.include_router(streams.router)
     app.include_router(watchlist.router)
     app.include_router(review.router)
     app.include_router(audit.router)
     app.include_router(settings_router.router)
     if settings.app_env.value != "production":
         app.include_router(debug.router)
+
+    # Document Bearer JWT auth in the OpenAPI schema
+    def custom_openapi() -> dict[str, Any]:
+        if app.openapi_schema:
+            return app.openapi_schema
+        schema = get_openapi(
+            title=settings.api_title,
+            version=settings.api_version,
+            routes=app.routes,
+        )
+        components = schema.setdefault("components", {})
+        components["securitySchemes"] = {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "JWT access token from POST /v1/auth/login",
+            }
+        }
+        schema["security"] = [{"bearerAuth": []}]
+        app.openapi_schema = schema
+        return app.openapi_schema
+
+    app.openapi = custom_openapi  # type: ignore[method-assign]
 
     return app
 
