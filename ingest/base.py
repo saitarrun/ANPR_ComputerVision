@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -13,7 +13,7 @@ import numpy as np
 class Frame:
     """Single captured frame."""
 
-    image: np.ndarray
+    image: np.ndarray[Any, Any]
     timestamp: float
     source_id: str
     width: int
