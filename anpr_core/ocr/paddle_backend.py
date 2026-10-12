@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from paddleocr import PaddleOCR
@@ -39,7 +40,7 @@ class PaddleBackend:
             enable_mkldnn=False,  # Disabled due to compatibility issue
         )
 
-    def recognize(self, crop: np.ndarray) -> list[OCRResult]:
+    def recognize(self, crop: np.ndarray[Any, Any]) -> list[OCRResult]:
         """
         Recognize characters in plate crop.
 
