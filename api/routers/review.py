@@ -5,14 +5,50 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
 import logging
 from typing import Any
+from uuid import UUID
 
-from api.deps import get_db_session, get_current_user_id
+from api.config import UserRole
+from api.deps import get_db_session, get_current_user_id, require_role
 from db.models import ReviewQueue, Detection
 from api.schemas.data import ReviewQueueOut, ReviewQueueResolve
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/review-queue", tags=["review"])
+
+# Role guard: only operators and admins may view/resolve the review queue
+review_queue_access = require_role(UserRole.OPERATOR, UserRole.ADMIN)
+
+# Map client-facing actions to stored statuses
+ACTION_TO_STATUS = {
+    "approve": "approved",
+    "reject": "rejected",
+    "flag": "flagged",
+}
+
+
+def _parse_uuid_or_none(value: str | None) -> UUID | None:
+    """Parse a UUID string, returning None for missing/invalid values."""
+    if not value:
+        return None
+    try:
+        return UUID(str(value))
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def _to_out(item: ReviewQueue) -> ReviewQueueOut:
+    """Convert a ReviewQueue ORM row to its response schema."""
+    return ReviewQueueOut(
+        id=str(item.id),
+        detection_id=str(item.detection_id),
+        status=item.status,
+        reviewer_id=str(item.reviewer_id) if item.reviewer_id else None,
+        detection_blob=item.detection_blob,
+        notes=item.notes,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
 
 
 @router.get("", response_model=list[ReviewQueueOut])
@@ -24,6 +60,7 @@ async def list_review_queue(
     limit: int = Query(50, ge=1, le=500),
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
+    _role: UserRole = Depends(review_queue_access),
 ) -> list[ReviewQueueOut]:
     """List review queue items with optional filters.
 
@@ -67,18 +104,7 @@ async def list_review_queue(
             if region_id and detection_blob.get("region_id") != region_id:
                 continue
 
-        items.append(
-            ReviewQueueOut(
-                id=str(item.id),
-                detection_id=str(item.detection_id),
-                status=item.status,
-                reviewer_id=str(item.reviewer_id) if item.reviewer_id else None,
-                detection_blob=item.detection_blob,
-                notes=item.notes,
-                created_at=item.created_at,
-                updated_at=item.updated_at,
-            )
-        )
+        items.append(_to_out(item))
 
     return items
 
@@ -89,6 +115,7 @@ async def resolve_review_item(
     data: ReviewQueueResolve,
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
+    _role: UserRole = Depends(review_queue_access),
 ) -> ReviewQueueOut:
     """Resolve a review queue item (approve/reject/flag).
 
@@ -101,14 +128,16 @@ async def resolve_review_item(
     Returns:
         Updated review queue item
     """
-    valid_statuses = {"approved", "rejected", "flagged"}
-    if data.status not in valid_statuses:
+    action = (data.action or "").strip().lower()
+    if action not in ACTION_TO_STATUS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}",
+            detail=f"Invalid action. Must be one of: {', '.join(sorted(ACTION_TO_STATUS))}",
         )
+    new_status = ACTION_TO_STATUS[action]
 
-    stmt = select(ReviewQueue).where(ReviewQueue.id == review_id)
+    review_uuid = _parse_uuid_or_none(review_id)
+    stmt = select(ReviewQueue).where(ReviewQueue.id == review_uuid)
     result = await db.execute(stmt)
     review_item = result.scalar_one_or_none()
 
@@ -118,12 +147,12 @@ async def resolve_review_item(
             detail="Review queue item not found",
         )
 
-    review_item.status = data.status  # type: ignore[assignment]
-    review_item.reviewer_id = user_id  # type: ignore[assignment]
-    review_item.notes = data.notes
+    review_item.status = new_status  # type: ignore[assignment]
+    review_item.reviewer_id = _parse_uuid_or_none(user_id)  # type: ignore[assignment]
+    review_item.notes = data.notes or data.comment
 
     # If flagged, store corrected plate
-    if data.status == "flagged" and data.corrected_plate:
+    if new_status == "flagged" and data.corrected_plate:
         blob_update: Any = review_item.detection_blob or {}
         blob_update["corrected_plate"] = data.corrected_plate
         review_item.detection_blob = blob_update
@@ -131,22 +160,14 @@ async def resolve_review_item(
     await db.commit()
     await db.refresh(review_item)
 
-    return ReviewQueueOut(
-        id=str(review_item.id),
-        detection_id=str(review_item.detection_id),
-        status=review_item.status,
-        reviewer_id=str(review_item.reviewer_id) if review_item.reviewer_id else None,
-        detection_blob=review_item.detection_blob,
-        notes=review_item.notes,
-        created_at=review_item.created_at,
-        updated_at=review_item.updated_at,
-    )
+    return _to_out(review_item)
 
 
 @router.get("/stats", response_model=dict)
 async def review_queue_stats(
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
+    _role: UserRole = Depends(review_queue_access),
 ) -> dict[str, Any]:
     """Get review queue statistics.
 
