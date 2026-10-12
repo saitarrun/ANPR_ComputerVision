@@ -84,3 +84,57 @@ class TestHealthStatus:
         _token_for(client, auth_token_factory, test_user, "viewer")
         r = client.get("/v1/health/status")
         assert r.status_code == 200
+
+
+class TestChangePassword:
+    def test_change_password(self, client, auth_token_factory, test_user):
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+        r = client.post(
+            "/v1/auth/change-password",
+            json={
+                "current_password": "SecurePass123!",
+                "new_password": "NewSecurePass456!",
+                "confirm_password": "NewSecurePass456!",
+            },
+        )
+        assert r.status_code == 204
+
+    def test_change_password_mismatch(self, client, auth_token_factory, test_user):
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+        r = client.post(
+            "/v1/auth/change-password",
+            json={
+                "current_password": "SecurePass123!",
+                "new_password": "NewSecurePass456!",
+                "confirm_password": "DifferentPass789!",
+            },
+        )
+        assert r.status_code == 400
+
+    def test_change_password_too_short(self, client, auth_token_factory, test_user):
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+        r = client.post(
+            "/v1/auth/change-password",
+            json={
+                "current_password": "SecurePass123!",
+                "new_password": "short",
+                "confirm_password": "short",
+            },
+        )
+        assert r.status_code == 400
+
+    def test_change_password_wrong_current(self, client, auth_token_factory, test_user):
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+        r = client.post(
+            "/v1/auth/change-password",
+            json={
+                "current_password": "WrongPass123!",
+                "new_password": "NewSecurePass456!",
+                "confirm_password": "NewSecurePass456!",
+            },
+        )
+        assert r.status_code == 401
