@@ -65,16 +65,20 @@ class RTSPSource(FrameSource):
             if not self._connect():
                 return None
 
+        cap = self.cap
+        if cap is None:
+            return None
+
         try:
-            ok, image = self.cap.read()
+            ok, image = cap.read()
             if not ok:
-                self.cap.release()
+                cap.release()
                 self.cap = None
                 raise RuntimeError("Read failed")
 
-            w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = self.cap.get(cv2.CAP_PROP_FPS)
+            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = cap.get(cv2.CAP_PROP_FPS)
 
             return Frame(
                 image=image,
