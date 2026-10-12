@@ -90,10 +90,7 @@ class CharacterVoter:
             # Majority vote
             char, vote_count = self._majority_vote(votes)
 
-            if (
-                vote_count < self.min_votes
-                and vote_count / num_frames < self.min_vote_fraction
-            ):
+            if vote_count < self.min_votes and vote_count / num_frames < self.min_vote_fraction:
                 # Not enough votes
                 voted_text += "_"  # Mark as unconfident
                 voted_confidences.append(0.0)
