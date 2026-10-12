@@ -20,7 +20,9 @@ class GoldenSetBuilder:
         self.golden_root = Path(golden_root)
         self.golden_root.mkdir(parents=True, exist_ok=True)
 
-    def create_empty_golden_set(self, set_name: str, description: str, target_size: int = 50) -> Path:
+    def create_empty_golden_set(
+        self, set_name: str, description: str, target_size: int = 50
+    ) -> Path:
         set_dir = self.golden_root / set_name
         set_dir.mkdir(parents=True, exist_ok=True)
 
