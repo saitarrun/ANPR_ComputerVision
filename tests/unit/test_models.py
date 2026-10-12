@@ -34,7 +34,7 @@ class TestUserModel:
             id=uuid.UUID("00000000-0000-4000-8000-000000000111"),
             email=test_user.email,  # Same email
             username="user2",
-            hashed_password=hash_password("different-password"),
+            hashed_password=hash_password("TestPassword123!"),
             role=UserRole.VIEWER,
             is_active="Y",
         )
@@ -53,7 +53,7 @@ class TestUserModel:
             id=uuid.UUID("00000000-0000-4000-8000-000000000112"),
             email=None,
             username="user3",
-            hashed_password=hash_password("password"),
+            hashed_password=hash_password("TestPassword123!"),
             role=UserRole.VIEWER,
             is_active="Y",
         )
@@ -90,7 +90,7 @@ class TestUserModel:
             id=uuid.UUID("00000000-0000-4000-8000-000000000114"),
             email="admin@example.com",
             username="user5",
-            hashed_password=hash_password("password"),
+            hashed_password=hash_password("TestPassword123!"),
             role="superuser",  # Invalid - will fail
             is_active="Y",
         )
@@ -110,7 +110,7 @@ class TestUserModel:
             id=uuid.UUID("00000000-0000-4000-8000-000000000115"),
             email="timestamps@example.com",
             username="user6",
-            hashed_password=hash_password("password"),
+            hashed_password=hash_password("TestPassword123!"),
             role=UserRole.VIEWER,
             is_active="Y",
         )
