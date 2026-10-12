@@ -4,8 +4,7 @@ from typing import Any
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from api.exceptions import AuthenticationError, AuthorizationError
-from api.security import verify_token, extract_user_id_from_token, extract_role_from_token
+from api.security import verify_token
 from api.config import UserRole
 from db.engine import AsyncSessionLocal
 from db.models import User
@@ -34,10 +33,12 @@ async def get_current_user(
     token = authorization.split(" ")[1]
     try:
         return verify_token(token)
-    except AuthenticationError as e:
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e.message),
+            detail=f"Invalid or expired token: {e}",
         )
 
 
@@ -63,7 +64,7 @@ async def get_current_user_role(token: dict[str, Any] = Depends(get_current_user
     return UserRole(role_str)
 
 
-async def require_role(*roles: UserRole) -> Any:
+def require_role(*roles: UserRole) -> Any:
     """Dependency factory for role-based access control.
 
     Args:
