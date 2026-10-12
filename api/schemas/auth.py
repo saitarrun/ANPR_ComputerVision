@@ -17,8 +17,16 @@ class TokenResponse(BaseModel):
 
     access_token: str
     refresh_token: str
-    token_type: str = "Bearer"
+    token_type: str = "bearer"
     expires_in: int  # Seconds
+    user_id: Optional[str] = None
+    role: Optional[str] = None
+
+
+class RefreshRequest(BaseModel):
+    """Token refresh request."""
+
+    refresh_token: str
 
 
 class UserResponse(BaseModel):
