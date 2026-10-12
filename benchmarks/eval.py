@@ -190,8 +190,7 @@ def check_acceptance_criteria(results: dict[str, Any]) -> bool:
         "detector_mAP75 >= 0.80": results.get("detector_mAP75", 0) >= 0.80,
         "latency_p95_ms < 200": results.get("latency_p95_ms", 999) < 200,
         "ocr_exact_match >= 0.85": results.get("ocr_exact_match", 0) >= 0.85,
-        "region_classifier_acc >= 0.98": results.get("region_classifier_acc", 0)
-        >= 0.98,
+        "region_classifier_acc >= 0.98": results.get("region_classifier_acc", 0) >= 0.98,
     }
 
     for criterion, passed in criteria.items():
