@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -86,7 +87,7 @@ class RegionClassifier:
         else:
             logger.warning(f"Model not found at {model_path}; using random init")
 
-    def classify(self, crop: np.ndarray) -> RegionResult:
+    def classify(self, crop: np.ndarray[Any, Any]) -> RegionResult:
         """
         Classify plate region.
 
@@ -97,7 +98,9 @@ class RegionClassifier:
             RegionResult with region + confidence
         """
         if crop.size == 0:
-            return RegionResult(region="IN", confidence=0.0, scores={r: 0.0 for r in REGIONS})
+            return RegionResult(
+                region="IN", confidence=0.0, scores={r: 0.0 for r in REGIONS}
+            )
 
         # Preprocess
         import cv2
