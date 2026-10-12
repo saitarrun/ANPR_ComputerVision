@@ -21,7 +21,7 @@ class FileSource(FrameSource):
         self.path = Path(path)
 
         if self.path.is_file():
-            self.cap = cv2.VideoCapture(str(self.path))
+            self.cap: Optional[cv2.VideoCapture] = cv2.VideoCapture(str(self.path))
             if not self.cap.isOpened():
                 raise RuntimeError(f"Cannot open {self.path}")
             self._width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -33,7 +33,8 @@ class FileSource(FrameSource):
             import glob
 
             self.images = sorted(
-                glob.glob(str(self.path / "*.jpg")) + glob.glob(str(self.path / "*.png"))
+                glob.glob(str(self.path / "*.jpg"))
+                + glob.glob(str(self.path / "*.png"))
             )
             if not self.images:
                 raise RuntimeError(f"No images in {self.path}")
