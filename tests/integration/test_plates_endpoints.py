@@ -91,7 +91,7 @@ class TestGetPlateDetail:
         response = authenticated_client.get(f"/v1/plates/{test_plate.id}")
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == test_plate.id
+        assert data["id"] == str(test_plate.id)
         assert "plate_string" in data or "plate" in data
         assert "confidence" in data
 
