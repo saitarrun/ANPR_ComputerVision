@@ -27,7 +27,7 @@ class EncryptedString(TypeDecorator):
             self.cipher = Fernet(key.encode() if isinstance(key, str) else key)
         else:
             # Fallback: read from env (should always be set in config)
-            from api.settings import settings
+            from api.config import settings
             if settings.fernet_key:
                 self.cipher = Fernet(settings.fernet_key.encode())
             else:
