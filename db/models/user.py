@@ -1,7 +1,7 @@
 """User model (identity)."""
 
 from enum import Enum
-from sqlalchemy import Column, String, UniqueConstraint, Index
+from sqlalchemy import Column, DateTime, String, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import validates
 from db.base import DeclarativeBase, IDMixin, TimestampMixin
@@ -23,6 +23,7 @@ class User(DeclarativeBase, IDMixin, TimestampMixin):  # type: ignore[misc]
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False, default="viewer")
     is_active = Column(String(1), nullable=False, default="Y")
+    last_login = Column(DateTime(timezone=True), nullable=True)
 
     @validates("role")
     def validate_role(self, key: str, value: object) -> str:
