@@ -148,9 +148,7 @@ class TestValidateRegexPattern:
 
         results = []
         thread = threading.Thread(
-            target=lambda: results.append(
-                watchlist_router.validate_regex_pattern(r"(a+)+b")
-            )
+            target=lambda: results.append(watchlist_router.validate_regex_pattern(r"(a+)+b"))
         )
         thread.start()
         thread.join()
@@ -162,9 +160,7 @@ class TestValidateRegexPattern:
                 raise re.error("bad backtrack")
 
         fake_re = SimpleNamespace(compile=lambda p: _BadRegex(), error=re.error)
-        fake_signal = SimpleNamespace(
-            SIGALRM=14, signal=lambda *a: None, alarm=lambda s: 0
-        )
+        fake_signal = SimpleNamespace(SIGALRM=14, signal=lambda *a: None, alarm=lambda s: 0)
         monkeypatch.setattr(watchlist_router, "re", fake_re)
         monkeypatch.setattr(watchlist_router, "signal", fake_signal)
         assert watchlist_router.validate_regex_pattern(r"ABC\d+") is False
@@ -175,9 +171,7 @@ class TestValidateRegexPattern:
                 raise RuntimeError("boom")
 
         fake_re = SimpleNamespace(compile=lambda p: _BadRegex(), error=re.error)
-        fake_signal = SimpleNamespace(
-            SIGALRM=14, signal=lambda *a: None, alarm=lambda s: 0
-        )
+        fake_signal = SimpleNamespace(SIGALRM=14, signal=lambda *a: None, alarm=lambda s: 0)
         monkeypatch.setattr(watchlist_router, "re", fake_re)
         monkeypatch.setattr(watchlist_router, "signal", fake_signal)
         assert watchlist_router.validate_regex_pattern(r"ABC\d+") is False
@@ -219,25 +213,19 @@ class TestCreateWatchlist:
     async def test_empty_pattern_400(self):
         data = WatchlistIn(plate_pattern="   ")
         with pytest.raises(HTTPException) as ei:
-            await watchlist_router.create_watchlist(
-                data=data, db=_FakeSession(), user_id="u"
-            )
+            await watchlist_router.create_watchlist(data=data, db=_FakeSession(), user_id="u")
         assert ei.value.status_code == 400
 
     async def test_invalid_regex_400(self):
         data = WatchlistIn(plate_pattern="([a-z+")
         with pytest.raises(HTTPException) as ei:
-            await watchlist_router.create_watchlist(
-                data=data, db=_FakeSession(), user_id="u"
-            )
+            await watchlist_router.create_watchlist(data=data, db=_FakeSession(), user_id="u")
         assert ei.value.status_code == 400
 
     async def test_invalid_region_id_422(self):
         data = WatchlistIn(plate_pattern=r"ABC\d+", region_id="nope")
         with pytest.raises(HTTPException) as ei:
-            await watchlist_router.create_watchlist(
-                data=data, db=_FakeSession(), user_id="u"
-            )
+            await watchlist_router.create_watchlist(data=data, db=_FakeSession(), user_id="u")
         assert ei.value.status_code == 422
 
     async def test_ok(self):
@@ -250,9 +238,7 @@ class TestCreateWatchlist:
             alert_enabled=True,
         )
         db = _FakeSession()
-        out = await watchlist_router.create_watchlist(
-            data=data, db=db, user_id="user-9"
-        )
+        out = await watchlist_router.create_watchlist(data=data, db=db, user_id="user-9")
         assert db.committed is True
         assert len(db.added) == 1
         assert out.plate_pattern == r"ABC\d+"
@@ -294,9 +280,7 @@ class TestListWatchlist:
 
     async def test_invalid_region_id_ignored(self):
         db = _FakeSession([_FakeResult(items=[])])
-        out = await watchlist_router.list_watchlist(
-            region_id="nope", db=db, user_id="u"
-        )
+        out = await watchlist_router.list_watchlist(region_id="nope", db=db, user_id="u")
         assert out == []
 
 
@@ -335,9 +319,7 @@ class TestUpdateWatchlist:
         data = WatchlistIn(plate_pattern="  ")
         db = _FakeSession([_FakeResult(one=w)])
         with pytest.raises(HTTPException) as ei:
-            await watchlist_router.update_watchlist(
-                str(w.id), data=data, db=db, user_id="u"
-            )
+            await watchlist_router.update_watchlist(str(w.id), data=data, db=db, user_id="u")
         assert ei.value.status_code == 400
 
     async def test_invalid_regex_400(self):
@@ -345,9 +327,7 @@ class TestUpdateWatchlist:
         data = WatchlistIn(plate_pattern="([a-z+")
         db = _FakeSession([_FakeResult(one=w)])
         with pytest.raises(HTTPException) as ei:
-            await watchlist_router.update_watchlist(
-                str(w.id), data=data, db=db, user_id="u"
-            )
+            await watchlist_router.update_watchlist(str(w.id), data=data, db=db, user_id="u")
         assert ei.value.status_code == 400
 
     async def test_invalid_region_422(self):
@@ -355,9 +335,7 @@ class TestUpdateWatchlist:
         data = WatchlistIn(plate_pattern=r"ABC\d+", region_id="nope")
         db = _FakeSession([_FakeResult(one=w)])
         with pytest.raises(HTTPException) as ei:
-            await watchlist_router.update_watchlist(
-                str(w.id), data=data, db=db, user_id="u"
-            )
+            await watchlist_router.update_watchlist(str(w.id), data=data, db=db, user_id="u")
         assert ei.value.status_code == 422
 
     async def test_ok(self):
@@ -370,9 +348,7 @@ class TestUpdateWatchlist:
             alert_channel="email",
         )
         db = _FakeSession([_FakeResult(one=w)])
-        out = await watchlist_router.update_watchlist(
-            str(w.id), data=data, db=db, user_id="u"
-        )
+        out = await watchlist_router.update_watchlist(str(w.id), data=data, db=db, user_id="u")
         assert db.committed is True
         assert out.plate_pattern == r"XYZ\d+"
         assert out.reason == "updated"
@@ -385,9 +361,7 @@ class TestUpdateWatchlist:
         data = WatchlistIn(plate_pattern=r"ABC\d+")
         db = _FakeSession([_FakeResult(one=w)], fail_commit=True)
         with pytest.raises(HTTPException) as ei:
-            await watchlist_router.update_watchlist(
-                str(w.id), data=data, db=db, user_id="u"
-            )
+            await watchlist_router.update_watchlist(str(w.id), data=data, db=db, user_id="u")
         assert ei.value.status_code == 400
 
 
@@ -401,9 +375,7 @@ class TestDeleteWatchlist:
     async def test_not_found_404(self):
         db = _FakeSession([_FakeResult(one=None)])
         with pytest.raises(HTTPException) as ei:
-            await watchlist_router.delete_watchlist(
-                str(uuid.uuid4()), db=db, user_id="u"
-            )
+            await watchlist_router.delete_watchlist(str(uuid.uuid4()), db=db, user_id="u")
         assert ei.value.status_code == 404
 
     async def test_ok(self):
