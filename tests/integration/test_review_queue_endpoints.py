@@ -168,3 +168,21 @@ class TestReviewQueueStatusTransitions:
             json={"action": "flag"},
         )
         assert response.status_code in [200, 404, 422]
+
+
+@pytest.mark.integration
+class TestReviewQueueStats:
+    """GET /v1/review-queue/stats endpoint tests."""
+
+    def test_stats_as_operator(self, operator_client):
+        r = operator_client.get("/v1/review-queue/stats")
+        assert r.status_code == 200
+        data = r.json()
+        assert "pending" in data
+        assert "avg_confidence" in data
+
+    def test_stats_viewer_forbidden(self, authenticated_client):
+        assert authenticated_client.get("/v1/review-queue/stats").status_code == 403
+
+    def test_stats_requires_auth(self, client):
+        assert client.get("/v1/review-queue/stats").status_code == 401
