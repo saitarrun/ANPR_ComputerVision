@@ -195,3 +195,23 @@ class TestAuditLogSearching:
             if len(items) > 1:
                 # Just verify we got a list
                 assert isinstance(items, list)
+
+
+@pytest.mark.integration
+class TestAuditLogExport:
+    """GET /v1/audit-log/export/csv endpoint tests."""
+
+    def test_export_csv_as_admin(self, admin_client):
+        r = admin_client.get("/v1/audit-log/export/csv")
+        assert r.status_code == 200
+        assert "text/csv" in r.headers.get("content-type", "")
+
+    def test_export_csv_viewer_forbidden(self, authenticated_client):
+        assert authenticated_client.get("/v1/audit-log/export/csv").status_code == 403
+
+    def test_export_csv_requires_auth(self, client):
+        assert client.get("/v1/audit-log/export/csv").status_code == 401
+
+    def test_export_csv_with_date_filter(self, admin_client):
+        r = admin_client.get("/v1/audit-log/export/csv?date_from=2020-01-01T00:00:00Z")
+        assert r.status_code == 200
