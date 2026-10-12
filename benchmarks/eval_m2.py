@@ -15,9 +15,7 @@ import numpy as np
 from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 class M2EvaluationHarness:
@@ -176,6 +174,4 @@ if __name__ == "__main__":
     parser.add_argument("--quick", action="store_true")
     args = parser.parse_args()
 
-    main(
-        model=args.model, golden_set=args.set, output_file=args.output, quick=args.quick
-    )
+    main(model=args.model, golden_set=args.set, output_file=args.output, quick=args.quick)
