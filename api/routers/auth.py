@@ -1,6 +1,6 @@
 """Authentication endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, Body
+from fastapi import APIRouter, Depends, Request, Body
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +11,7 @@ import redis.asyncio as aioredis
 import logging
 from typing import Any, cast
 
-from api.deps import get_db_session, get_current_user, get_current_user_id
+from api.deps import get_db_session, get_current_user_id
 from api.schemas.auth import LoginRequest, TokenResponse, UserResponse, RefreshRequest
 from api.security import (
     ValidRole,
@@ -19,11 +19,8 @@ from api.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
-    extract_user_id_from_token,
     verify_token_type,
-    add_token_to_blacklist,
     is_token_blacklisted,
-    decode_jwt,
     JWTError,
 )
 from api.config import settings, UserRole
