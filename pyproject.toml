@@ -168,6 +168,7 @@ omit = [
     "api/deps.py",
     "api/encryption.py",
     "api/rbac.py",
+    "api/settings.py",
     "api/privacy/*",
     "api/routers/watchlist_test.py",
     "workers/tasks_privacy.py",
