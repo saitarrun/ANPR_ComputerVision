@@ -15,7 +15,6 @@ import asyncio
 import json
 import os
 from typing import Any, AsyncGenerator, Generator
-from urllib.parse import urlparse
 
 import pytest
 import pytest_asyncio
@@ -76,8 +75,11 @@ def postgres_url(postgres_container: PostgresContainer) -> str:
 @pytest.fixture(scope="session")
 def redis_url(redis_container: RedisContainer) -> str:
     """Redis connection URL from container."""
-    parsed = urlparse(redis_container.get_connection_url())
-    return f"redis://{parsed.hostname}:{parsed.port}/0"
+    # NOTE: testcontainers>=4 RedisContainer has no get_connection_url();
+    # build the URL from the exposed host/port instead.
+    host = redis_container.get_container_host_ip()
+    port = redis_container.get_exposed_port(6379)
+    return f"redis://{host}:{port}/0"
 
 
 # ======================== Database Session Fixtures ========================
@@ -162,6 +164,35 @@ def refresh_token_factory(jwt_secret: str):
             exp_seconds=604800,
             token_type="refresh",
         )
+
+    return _create_token
+
+
+@pytest.fixture
+def expired_token_factory(jwt_secret: str):
+    """Factory to create already-expired JWT tokens (for negative tests).
+
+    encode_jwt() rejects non-positive expiries, so expired tokens are built
+    directly with the same claims/audience/issuer the app uses.
+    """
+    from jose import jwt as jose_jwt
+    from api.config import settings
+    from datetime import datetime, timedelta, timezone
+    import uuid as uuid_module
+
+    def _create_token(user_id: str = "test-user", role: str = "viewer") -> str:
+        now = datetime.now(timezone.utc)
+        payload = {
+            "user_id": user_id,
+            "role": role,
+            "exp": int((now - timedelta(seconds=10)).timestamp()),
+            "iat": int(now.timestamp()),
+            "type": "access",
+            "jti": str(uuid_module.uuid4()),
+            "aud": "anpr-api",
+            "iss": "anpr-issuer",
+        }
+        return jose_jwt.encode(payload, jwt_secret, algorithm=settings.jwt_algorithm)
 
     return _create_token
 
