@@ -22,6 +22,22 @@ TEST_USER_PASSWORD = "password123"  # Seeded password
 TEST_REGION_ID = "us"  # US plates
 
 
+@pytest.fixture(autouse=True)
+def _require_live_api():
+    """Skip E2E tests when the live API stack is not reachable.
+
+    These tests target a separately deployed API (e.g. docker-compose with
+    seeded data), not the in-process TestClient. CI does not run that stack,
+    so skip cleanly instead of failing on connection errors.
+    """
+    try:
+        resp = httpx.get(f"{API_BASE_URL}/healthz", timeout=3.0)
+    except Exception as exc:
+        pytest.skip(f"live API at {API_BASE_URL} is not reachable: {exc}")
+    if resp.status_code != 200:
+        pytest.skip(f"live API at {API_BASE_URL} is not healthy")
+
+
 @pytest.fixture
 def http_client() -> httpx.Client:
     """HTTP client for API requests."""
