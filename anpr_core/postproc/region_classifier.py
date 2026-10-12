@@ -98,9 +98,7 @@ class RegionClassifier:
             RegionResult with region + confidence
         """
         if crop.size == 0:
-            return RegionResult(
-                region="IN", confidence=0.0, scores={r: 0.0 for r in REGIONS}
-            )
+            return RegionResult(region="IN", confidence=0.0, scores={r: 0.0 for r in REGIONS})
 
         # Preprocess
         import cv2
