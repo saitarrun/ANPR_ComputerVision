@@ -9,13 +9,17 @@ import io
 import csv
 import logging
 
-from api.deps import get_db_session, get_current_user_id
+from api.deps import get_db_session, get_current_user_id, require_role
+from api.config import UserRole
 from db.models import AuditLog
 from api.schemas.data import AuditLogOut
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/audit-log", tags=["audit"])
+
+# Role guard: audit log is admin-only
+admin_only = require_role(UserRole.ADMIN)
 
 
 @router.get("", response_model=list[AuditLogOut])
@@ -28,6 +32,7 @@ async def list_audit_log(
     limit: int = Query(100, ge=1, le=1000),
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
+    _role: UserRole = Depends(admin_only),
 ) -> list[AuditLogOut]:
     """List audit log entries with optional filters.
 
@@ -100,6 +105,7 @@ async def export_audit_log_csv(
     user_id_filter: str | None = Query(None),
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
+    _role: UserRole = Depends(admin_only),
 ) -> StreamingResponse:
     """Export audit log to CSV for compliance.
 
