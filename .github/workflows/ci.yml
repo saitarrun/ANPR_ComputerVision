@@ -70,7 +70,7 @@ jobs:
       APP_ENV: test
       # Required by api/config.py Settings (validated at import time).
       # Dummy CI-only values; real secrets come from GitHub Secrets / AWS.
-      CELERY_ENCRYPTION_KEY: HxAnKL3hRBaNgImn_QkUjdtyt50ZI8ff9uYErKzSQBM=
+      CELERY_ENCRYPTION_KEY: dummy-ci-only-value-not-a-real-secret-00000000
       S3_ENDPOINT_URL: http://localhost:9000
       S3_ACCESS_KEY: test
       S3_SECRET_KEY: test
@@ -240,7 +240,7 @@ jobs:
             -e FERNET_KEY=${{ secrets.CI_FERNET_KEY }} \
             -e JWT_SECRET=${{ secrets.CI_JWT_SECRET }} \
             -e APP_ENV=test \
-            -e CELERY_ENCRYPTION_KEY=HxAnKL3hRBaNgImn_QkUjdtyt50ZI8ff9uYErKzSQBM= \
+            -e CELERY_ENCRYPTION_KEY=dummy-ci-only-value-not-a-real-secret-00000000 \
             -e S3_ENDPOINT_URL=http://localhost:9000 \
             -e S3_ACCESS_KEY=test \
             -e S3_SECRET_KEY=test \
