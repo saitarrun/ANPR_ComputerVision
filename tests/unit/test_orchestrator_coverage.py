@@ -48,9 +48,7 @@ def _postproc(text: str = "MH12AB1234", valid: bool = True) -> SimpleNamespace:
 
 
 def _gate(persist: bool = True) -> SimpleNamespace:
-    return SimpleNamespace(
-        should_persist=persist, reasons=[] if persist else ["low_conf"]
-    )
+    return SimpleNamespace(should_persist=persist, reasons=[] if persist else ["low_conf"])
 
 
 def _voted(text: str = "VOTED12") -> SimpleNamespace:
