@@ -72,6 +72,7 @@ class PlateOut(BaseModel):
     first_seen_at: datetime
     last_seen_at: datetime
     avg_confidence: float
+    confidence: Optional[float] = None
     created_at: datetime
     updated_at: datetime
 
@@ -83,7 +84,7 @@ class WatchlistIn(BaseModel):
     """Watchlist create/update schema."""
 
     plate_pattern: str
-    region_id: str
+    region_id: Optional[str] = None
     reason: Optional[str] = None
     priority: int = 0
     alert_enabled: bool = True
@@ -95,15 +96,15 @@ class WatchlistOut(BaseModel):
 
     id: str
     plate_pattern: str
-    region_id: str
+    region_id: Optional[str] = None
     reason: Optional[str] = None
     priority: int
     alert_enabled: bool
-    alert_channel: str
+    alert_channel: Optional[str] = None
     dedup_window: int
     last_hit: Optional[datetime] = None
-    hit_count: int
-    created_by_user_id: str
+    match_count: int
+    created_by_user_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -130,8 +131,9 @@ class ReviewQueueOut(BaseModel):
 class ReviewQueueResolve(BaseModel):
     """Review queue resolution schema."""
 
-    status: str  # approved, rejected, flagged
+    action: str  # approve, reject, flag
     notes: Optional[str] = None
+    comment: Optional[str] = None
     corrected_plate: Optional[str] = None
 
 
@@ -149,3 +151,36 @@ class AuditLogOut(BaseModel):
 
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}
+
+
+class StreamIn(BaseModel):
+    """Stream create schema (backed by the Camera model)."""
+
+    name: str
+    rtsp_url: str
+    region_id: str
+
+
+class StreamOut(BaseModel):
+    """Stream response schema."""
+
+    id: str
+    name: str
+    rtsp_url: Optional[str] = None
+    region_id: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    stats: Optional[dict[str, Any]] = None
+
+    class Config:
+        json_encoders = {datetime: lambda v: v.isoformat()}
+
+
+class StreamListOut(BaseModel):
+    """Paginated stream list response."""
+
+    items: list[StreamOut]
+    total: int
+    limit: int
+    offset: int
