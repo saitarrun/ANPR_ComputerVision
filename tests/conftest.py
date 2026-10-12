@@ -44,6 +44,7 @@ def postgres_container() -> Generator[PostgresContainer, None, None]:
     container.start()
     # Wait for postgres to be healthy
     import time
+
     time.sleep(2)
     yield container
     container.stop()
@@ -56,6 +57,7 @@ def redis_container() -> Generator[RedisContainer, None, None]:
     container.start()
     # Wait for redis to be healthy
     import time
+
     time.sleep(1)
     yield container
     container.stop()
@@ -115,7 +117,6 @@ async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-
 # ======================== Security & Auth Fixtures ========================
 
 
@@ -123,6 +124,7 @@ async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
 def jwt_secret() -> str:
     """JWT secret key for testing - uses app settings."""
     from api.config import settings
+
     return settings.jwt_secret
 
 
@@ -356,7 +358,10 @@ def websocket_url(auth_token_factory):
     """WebSocket URL with auth token (via header, not query param)."""
     token = auth_token_factory()
     # Return (url, headers) tuple; connection headers passed in connect()
-    return ("ws://testserver/v1/stream/test-stream-1", {"Authorization": f"Bearer {token}"})
+    return (
+        "ws://testserver/v1/stream/test-stream-1",
+        {"Authorization": f"Bearer {token}"},
+    )
 
 
 # ======================== Utility Fixtures ========================
@@ -381,9 +386,9 @@ def assert_schema(client):
 
     def _assert(data: dict, required_keys: list[str]):
         for key in required_keys:
-            assert (
-                key in data
-            ), f"Missing required key '{key}' in response. Got: {list(data.keys())}"
+            assert key in data, (
+                f"Missing required key '{key}' in response. Got: {list(data.keys())}"
+            )
 
     return _assert
 
