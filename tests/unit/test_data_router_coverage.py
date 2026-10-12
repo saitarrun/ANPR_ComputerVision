@@ -193,9 +193,7 @@ class TestRequireRegionAccess:
 
     def test_custom_detail(self):
         with pytest.raises(HTTPException) as ei:
-            data_router._require_region_access(
-                [uuid.uuid4()], uuid.uuid4(), detail="nope"
-            )
+            data_router._require_region_access([uuid.uuid4()], uuid.uuid4(), detail="nope")
         assert ei.value.detail == "nope"
 
 
@@ -230,9 +228,7 @@ class TestValidatePlateString:
     async def test_valid_plate_returns_none(self):
         region = _region()
         db = _FakeSession([_FakeResult(items=[region])])
-        assert (
-            await data_router.validate_plate_string("MH12AB1234", region.id, db) is None
-        )
+        assert await data_router.validate_plate_string("MH12AB1234", region.id, db) is None
 
 
 class TestDictConverters:
@@ -293,9 +289,7 @@ class TestListRegions:
 class TestListCamerasForRegion:
     async def test_invalid_uuid_422(self):
         with pytest.raises(HTTPException) as ei:
-            await data_router.list_cameras_for_region(
-                "bad", db=_FakeSession(), user_id="x"
-            )
+            await data_router.list_cameras_for_region("bad", db=_FakeSession(), user_id="x")
         assert ei.value.status_code == 422
 
     async def test_region_not_found_404(self):
@@ -310,9 +304,7 @@ class TestListCamerasForRegion:
         region = _region()
         cam = _camera(region.id)
         db = _FakeSession([_FakeResult(items=[region]), _FakeResult(items=[cam])])
-        out = await data_router.list_cameras_for_region(
-            str(region.id), db=db, user_id="not-a-uuid"
-        )
+        out = await data_router.list_cameras_for_region(str(region.id), db=db, user_id="not-a-uuid")
         assert len(out) == 1
         assert out[0]["name"] == "cam-1"
 
@@ -578,17 +570,13 @@ class TestGetPlateDetail:
             ]
         )
         with pytest.raises(HTTPException) as ei:
-            await data_router.get_plate_detail(
-                str(plate.id), db=db, user_id=str(user.id)
-            )
+            await data_router.get_plate_detail(str(plate.id), db=db, user_id=str(user.id))
         assert ei.value.status_code == 403
 
     async def test_ok(self):
         plate = _plate(uuid.uuid4())
         db = _FakeSession([_FakeResult(one=plate)])
-        out = await data_router.get_plate_detail(
-            str(plate.id), db=db, user_id="not-a-uuid"
-        )
+        out = await data_router.get_plate_detail(str(plate.id), db=db, user_id="not-a-uuid")
         assert out["plate_string"] == "MH12AB1234"
 
 
