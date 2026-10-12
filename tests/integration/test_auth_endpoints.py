@@ -21,7 +21,7 @@ class TestAuthLogin:
         """Test login with valid email and password."""
         response = client.post(
             "/v1/auth/login",
-            json={"email": "viewer@test.local", "password": "secure-password-123"},
+            json={"email": "viewer@test.local", "password": "SecurePass123!"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -83,7 +83,7 @@ class TestAuthLogin:
         """Test that login response includes user role."""
         response = client.post(
             "/v1/auth/login",
-            json={"email": "viewer@test.local", "password": "secure-password-123"},
+            json={"email": "viewer@test.local", "password": "SecurePass123!"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -94,7 +94,7 @@ class TestAuthLogin:
         """Test login for operator user."""
         response = client.post(
             "/v1/auth/login",
-            json={"email": "operator@test.local", "password": "secure-password-456"},
+            json={"email": "operator@test.local", "password": "SecurePass456!"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -105,7 +105,7 @@ class TestAuthLogin:
         """Test login for admin user."""
         response = client.post(
             "/v1/auth/login",
-            json={"email": "admin@test.local", "password": "secure-password-789"},
+            json={"email": "admin@test.local", "password": "SecurePass789!"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -118,7 +118,7 @@ class TestAuthRefresh:
     @pytest.mark.integration
     def test_refresh_token_valid(self, client, refresh_token_factory, test_user):
         """Test token refresh with valid refresh token."""
-        refresh_token = refresh_token_factory(user_id=test_user.id)
+        refresh_token = refresh_token_factory(user_id=str(test_user.id))
         response = client.post(
             "/v1/auth/refresh",
             json={"refresh_token": refresh_token},
@@ -162,12 +162,14 @@ class TestAuthMe:
     """GET /v1/auth/me endpoint tests."""
 
     @pytest.mark.integration
-    def test_auth_me_returns_current_user(self, authenticated_client, test_user):
+    def test_auth_me_returns_current_user(self, client, auth_token_factory, test_user):
         """Test getting current user info."""
-        response = authenticated_client.get("/v1/auth/me")
+        token = auth_token_factory(user_id=str(test_user.id), role="viewer")
+        client.headers = {"Authorization": f"Bearer {token}"}
+        response = client.get("/v1/auth/me")
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == test_user.id
+        assert data["id"] == str(test_user.id)
         assert data["email"] == test_user.email
         assert data["role"] == test_user.role
 
@@ -185,16 +187,9 @@ class TestAuthMe:
         assert response.status_code == 401
 
     @pytest.mark.integration
-    def test_auth_me_expired_token(self, client, jwt_secret: str):
+    def test_auth_me_expired_token(self, client, expired_token_factory):
         """Test with expired token."""
-        from api.security import encode_jwt
-
-        expired_token = encode_jwt(
-            user_id="test-user",
-            role="viewer",
-            secret=jwt_secret,
-            exp_seconds=-1,  # Already expired
-        )
+        expired_token = expired_token_factory(user_id="test-user", role="viewer")
         client.headers = {"Authorization": f"Bearer {expired_token}"}
         response = client.get("/v1/auth/me")
         assert response.status_code == 401
