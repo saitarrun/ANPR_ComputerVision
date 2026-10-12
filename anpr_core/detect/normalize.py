@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import cv2
 import numpy as np
@@ -15,9 +16,9 @@ PLATE_HEIGHT = 60
 
 
 def normalize_plate(
-    crop: np.ndarray,
-    corners: np.ndarray | None = None,
-) -> np.ndarray:
+    crop: np.ndarray[Any, Any],
+    corners: np.ndarray[Any, Any] | None = None,
+) -> np.ndarray[Any, Any]:
     """
     Normalize plate to canonical perspective.
 
@@ -61,7 +62,9 @@ def normalize_plate(
 
     # Perspective transform
     M = cv2.getPerspectiveTransform(corners, dst_pts)
-    normalized = cv2.warpPerspective(crop, M, (PLATE_WIDTH, PLATE_HEIGHT))
+    normalized: np.ndarray[Any, Any] = cv2.warpPerspective(
+        crop, M, (PLATE_WIDTH, PLATE_HEIGHT)
+    )
 
     return normalized
 
@@ -70,7 +73,7 @@ def detect_corners_from_bbox(
     bbox: tuple[float, float, float, float],
     image_shape: tuple[int, int, int],
     tilt_degrees: float = 0.0,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """
     Estimate 4 corner points from bbox (simple heuristic).
 
@@ -93,7 +96,7 @@ def detect_corners_from_bbox(
     cy = (y1 + y2) / 2
 
     # Corner offsets (before rotation)
-    corners = np.array(
+    corners: np.ndarray[Any, Any] = np.array(
         [
             [x1, y1],
             [x2, y1],
@@ -123,7 +126,7 @@ def detect_corners_from_bbox(
     return corners
 
 
-def estimate_tilt_from_crop(crop: np.ndarray) -> float:
+def estimate_tilt_from_crop(crop: np.ndarray[Any, Any]) -> float:
     """
     Estimate tilt angle of plate from crop (heuristic).
 
@@ -145,7 +148,9 @@ def estimate_tilt_from_crop(crop: np.ndarray) -> float:
     lines = cv2.HoughLines(edges, 1, np.pi / 180, 50)
 
     if lines is None:
-        return 0.0
+        # cv2 stubs type HoughLines as non-optional, but it returns None at
+        # runtime when no lines are detected.
+        return 0.0  # type: ignore[unreachable]
 
     # Estimate angle from horizontal lines
     angles = []
@@ -161,7 +166,7 @@ def estimate_tilt_from_crop(crop: np.ndarray) -> float:
         # Average angle
         mean_angle = np.mean(angles)
         # Clamp to ±25
-        return np.clip(mean_angle, -25, 25)
+        return float(np.clip(mean_angle, -25, 25))
 
     return 0.0
 
