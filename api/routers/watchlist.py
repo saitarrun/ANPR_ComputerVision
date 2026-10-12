@@ -6,9 +6,12 @@ from sqlalchemy import select, and_, desc
 import logging
 import re
 import signal
+import threading
 from typing import Any
+from uuid import UUID
 
-from api.deps import get_db_session, get_current_user_id
+from api.config import UserRole
+from api.deps import get_db_session, get_current_user_id, require_role
 from db.models import Watchlist
 from api.schemas.data import WatchlistIn, WatchlistOut
 
@@ -18,6 +21,19 @@ router = APIRouter(prefix="/v1/watchlist", tags=["watchlist"])
 
 # Regex timeout threshold (seconds)
 REGEX_TIMEOUT_SEC = 1
+
+# Role guard: only operators and admins may mutate the watchlist
+manage_watchlist = require_role(UserRole.OPERATOR, UserRole.ADMIN)
+
+
+def _parse_uuid_or_none(value: str | None) -> UUID | None:
+    """Parse a UUID string, returning None for missing/invalid values."""
+    if not value:
+        return None
+    try:
+        return UUID(str(value))
+    except (ValueError, TypeError, AttributeError):
+        return None
 
 
 def _regex_timeout_handler(signum: int, frame: Any) -> None:
@@ -37,7 +53,17 @@ def validate_regex_pattern(pattern: str) -> bool:
     try:
         # Test compilation
         compiled = re.compile(pattern)
+    except re.error as e:
+        logger.warning(f"Invalid regex pattern: {pattern} - {e}")
+        return False
 
+    # The SIGALRM-based ReDoS probe only works on the main thread (signal
+    # handlers can only be registered there). In worker threads (e.g. the
+    # TestClient portal or uvicorn workers) fall back to the compile check.
+    if threading.current_thread() is not threading.main_thread():
+        return True
+
+    try:
         # Test matching with timeout (Unix/Linux/macOS only)
         # This prevents catastrophic backtracking (ReDoS)
         try:
@@ -64,11 +90,33 @@ def validate_regex_pattern(pattern: str) -> bool:
         return False
 
 
+def _to_out(watchlist: Watchlist) -> WatchlistOut:
+    """Convert a Watchlist ORM row to its response schema."""
+    return WatchlistOut(
+        id=str(watchlist.id),
+        plate_pattern=watchlist.plate_pattern,
+        region_id=str(watchlist.region_id) if watchlist.region_id else None,
+        reason=watchlist.reason,
+        priority=watchlist.priority or 0,
+        alert_enabled=watchlist.alert_enabled == "Y",
+        alert_channel=watchlist.alert_channel,
+        dedup_window=watchlist.dedup_window or 300,
+        last_hit=watchlist.last_hit,
+        match_count=watchlist.match_count or 0,
+        created_by_user_id=str(watchlist.created_by_user_id)
+        if watchlist.created_by_user_id
+        else None,
+        created_at=watchlist.created_at,
+        updated_at=watchlist.updated_at,
+    )
+
+
 @router.post("", response_model=WatchlistOut, status_code=status.HTTP_201_CREATED)
 async def create_watchlist(
     data: WatchlistIn,
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
+    _role: UserRole = Depends(manage_watchlist),
 ) -> WatchlistOut:
     """Create a new watchlist pattern.
 
@@ -80,22 +128,35 @@ async def create_watchlist(
     Returns:
         Created watchlist
     """
+    if not data.plate_pattern or not data.plate_pattern.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="plate_pattern must not be empty",
+        )
+
     if not validate_regex_pattern(data.plate_pattern):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid regex pattern: {data.plate_pattern}",
         )
 
+    region_uuid = _parse_uuid_or_none(data.region_id)
+    if data.region_id and region_uuid is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid region_id format",
+        )
+
     watchlist = Watchlist(
         plate_pattern=data.plate_pattern,
-        region_id=data.region_id,
+        region_id=region_uuid,
         reason=data.reason,
         priority=data.priority,
         alert_enabled="Y" if data.alert_enabled else "N",
         alert_channel=data.alert_channel,
         dedup_window=300,
-        hit_count=0,
-        created_by_user_id=user_id,
+        match_count=0,
+        created_by_user_id=str(user_id),
     )
 
     db.add(watchlist)
@@ -110,21 +171,7 @@ async def create_watchlist(
             detail="Watchlist pattern already exists for this region",
         )
 
-    return WatchlistOut(
-        id=str(watchlist.id),
-        plate_pattern=watchlist.plate_pattern,
-        region_id=str(watchlist.region_id),
-        reason=watchlist.reason,
-        priority=watchlist.priority,
-        alert_enabled=watchlist.alert_enabled == "Y",
-        alert_channel=watchlist.alert_channel,
-        dedup_window=watchlist.dedup_window,
-        last_hit=watchlist.last_hit,
-        hit_count=watchlist.hit_count,
-        created_by_user_id=str(watchlist.created_by_user_id),
-        created_at=watchlist.created_at,
-        updated_at=watchlist.updated_at,
-    )
+    return _to_out(watchlist)
 
 
 @router.get("", response_model=list[WatchlistOut])
@@ -147,8 +194,9 @@ async def list_watchlist(
     """
     conditions = []
 
+    region_uuid = _parse_uuid_or_none(region_id)
     if region_id:
-        conditions.append(Watchlist.region_id == region_id)
+        conditions.append(Watchlist.region_id == region_uuid)
 
     if enabled_only:
         conditions.append(Watchlist.alert_enabled == "Y")
@@ -162,41 +210,27 @@ async def list_watchlist(
     result = await db.execute(stmt)
     watchlists = result.scalars().all()
 
-    return [
-        WatchlistOut(
-            id=str(w.id),
-            plate_pattern=w.plate_pattern,
-            region_id=str(w.region_id),
-            reason=w.reason,
-            priority=w.priority,
-            alert_enabled=w.alert_enabled == "Y",
-            alert_channel=w.alert_channel,
-            dedup_window=w.dedup_window,
-            last_hit=w.last_hit,
-            hit_count=w.hit_count,
-            created_by_user_id=str(w.created_by_user_id),
-            created_at=w.created_at,
-            updated_at=w.updated_at,
-        )
-        for w in watchlists
-    ]
+    return [_to_out(w) for w in watchlists]
 
 
 @router.get("/{watchlist_id}", response_model=WatchlistOut)
 async def get_watchlist(
     watchlist_id: str,
     db: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_current_user_id),
 ) -> WatchlistOut:
     """Get a specific watchlist pattern.
 
     Args:
         watchlist_id: Watchlist ID
         db: Database session
+        user_id: Current user ID
 
     Returns:
         Watchlist pattern
     """
-    stmt = select(Watchlist).where(Watchlist.id == watchlist_id)
+    entry_uuid = _parse_uuid_or_none(watchlist_id)
+    stmt = select(Watchlist).where(Watchlist.id == entry_uuid)
     result = await db.execute(stmt)
     watchlist = result.scalar_one_or_none()
 
@@ -206,21 +240,7 @@ async def get_watchlist(
             detail="Watchlist pattern not found",
         )
 
-    return WatchlistOut(
-        id=str(watchlist.id),
-        plate_pattern=watchlist.plate_pattern,
-        region_id=str(watchlist.region_id),
-        reason=watchlist.reason,
-        priority=watchlist.priority,
-        alert_enabled=watchlist.alert_enabled == "Y",
-        alert_channel=watchlist.alert_channel,
-        dedup_window=watchlist.dedup_window,
-        last_hit=watchlist.last_hit,
-        hit_count=watchlist.hit_count,
-        created_by_user_id=str(watchlist.created_by_user_id),
-        created_at=watchlist.created_at,
-        updated_at=watchlist.updated_at,
-    )
+    return _to_out(watchlist)
 
 
 @router.put("/{watchlist_id}", response_model=WatchlistOut)
@@ -229,6 +249,7 @@ async def update_watchlist(
     data: WatchlistIn,
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
+    _role: UserRole = Depends(manage_watchlist),
 ) -> WatchlistOut:
     """Update a watchlist pattern.
 
@@ -241,7 +262,8 @@ async def update_watchlist(
     Returns:
         Updated watchlist pattern
     """
-    stmt = select(Watchlist).where(Watchlist.id == watchlist_id)
+    entry_uuid = _parse_uuid_or_none(watchlist_id)
+    stmt = select(Watchlist).where(Watchlist.id == entry_uuid)
     result = await db.execute(stmt)
     watchlist = result.scalar_one_or_none()
 
@@ -251,18 +273,31 @@ async def update_watchlist(
             detail="Watchlist pattern not found",
         )
 
+    if not data.plate_pattern or not data.plate_pattern.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="plate_pattern must not be empty",
+        )
+
     if not validate_regex_pattern(data.plate_pattern):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid regex pattern: {data.plate_pattern}",
         )
 
+    region_uuid = _parse_uuid_or_none(data.region_id)
+    if data.region_id and region_uuid is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid region_id format",
+        )
+
     watchlist.plate_pattern = data.plate_pattern  # type: ignore[assignment]
-    watchlist.region_id = data.region_id  # type: ignore[assignment]
-    watchlist.reason = data.reason
-    watchlist.priority = data.priority
-    watchlist.alert_enabled = "Y" if data.alert_enabled else "N"
-    watchlist.alert_channel = data.alert_channel
+    watchlist.region_id = region_uuid  # type: ignore[assignment]
+    watchlist.reason = data.reason  # type: ignore[assignment]
+    watchlist.priority = data.priority  # type: ignore[assignment]
+    watchlist.alert_enabled = "Y" if data.alert_enabled else "N"  # type: ignore[assignment]
+    watchlist.alert_channel = data.alert_channel  # type: ignore[assignment]
 
     try:
         await db.commit()
@@ -275,21 +310,7 @@ async def update_watchlist(
             detail="Failed to update watchlist",
         )
 
-    return WatchlistOut(
-        id=str(watchlist.id),
-        plate_pattern=watchlist.plate_pattern,
-        region_id=str(watchlist.region_id),
-        reason=watchlist.reason,
-        priority=watchlist.priority,
-        alert_enabled=watchlist.alert_enabled == "Y",
-        alert_channel=watchlist.alert_channel,
-        dedup_window=watchlist.dedup_window,
-        last_hit=watchlist.last_hit,
-        hit_count=watchlist.hit_count,
-        created_by_user_id=str(watchlist.created_by_user_id),
-        created_at=watchlist.created_at,
-        updated_at=watchlist.updated_at,
-    )
+    return _to_out(watchlist)
 
 
 @router.delete("/{watchlist_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -297,6 +318,7 @@ async def delete_watchlist(
     watchlist_id: str,
     db: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id),
+    _role: UserRole = Depends(manage_watchlist),
 ) -> None:
     """Delete a watchlist pattern.
 
@@ -305,7 +327,8 @@ async def delete_watchlist(
         db: Database session
         user_id: Current user ID
     """
-    stmt = select(Watchlist).where(Watchlist.id == watchlist_id)
+    entry_uuid = _parse_uuid_or_none(watchlist_id)
+    stmt = select(Watchlist).where(Watchlist.id == entry_uuid)
     result = await db.execute(stmt)
     watchlist = result.scalar_one_or_none()
 
