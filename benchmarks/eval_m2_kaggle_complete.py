@@ -13,19 +13,13 @@ import numpy as np
 from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 class M2KaggleEvaluation:
     def __init__(self):
-        self.model_path = Path(
-            "runs/detect/runs/detect/kaggle-plate-detection/weights/best.pt"
-        )
-        self.dataset_yaml = Path(
-            "/Users/saitarrunpitta/.cache/anpr-datasets/dataset.yaml"
-        )
+        self.model_path = Path("runs/detect/runs/detect/kaggle-plate-detection/weights/best.pt")
+        self.dataset_yaml = Path("/Users/saitarrunpitta/.cache/anpr-datasets/dataset.yaml")
         self.model = None
 
     def load_model(self):
