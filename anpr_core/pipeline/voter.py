@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class CharacterVoter:
         self.min_vote_fraction = min_vote_fraction
         self.confidence_method = confidence_method
 
-    def vote(self, frame_results: list[dict]) -> VotingResult:
+    def vote(self, frame_results: list[dict[str, Any]]) -> VotingResult:
         """
         Vote across multiple frames.
 
@@ -89,7 +90,10 @@ class CharacterVoter:
             # Majority vote
             char, vote_count = self._majority_vote(votes)
 
-            if vote_count < self.min_votes and vote_count / num_frames < self.min_vote_fraction:
+            if (
+                vote_count < self.min_votes
+                and vote_count / num_frames < self.min_vote_fraction
+            ):
                 # Not enough votes
                 voted_text += "_"  # Mark as unconfident
                 voted_confidences.append(0.0)
@@ -124,7 +128,7 @@ class CharacterVoter:
         Returns:
             (char, vote_count)
         """
-        vote_counts = {}
+        vote_counts: dict[str, int] = {}
         for v in votes:
             vote_counts[v] = vote_counts.get(v, 0) + 1
 
