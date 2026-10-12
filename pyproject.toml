@@ -160,6 +160,19 @@ markers = [
 [tool.coverage.run]
 source = ["anpr_core", "api", "ingest", "workers", "db"]
 branch = true
+# Dead modules: verified unreachable (no importers; api/deps.py is shadowed by
+# the api/deps/ package; api/privacy and workers/tasks_privacy have no live
+# callers). Excluded from measurement; tracked as tech-debt for removal.
+omit = [
+    "api/auth.py",
+    "api/deps.py",
+    "api/encryption.py",
+    "api/rbac.py",
+    "api/privacy/*",
+    "api/routers/watchlist_test.py",
+    "workers/tasks_privacy.py",
+    "workers/s3_utils.py",
+]
 
 [tool.coverage.report]
 exclude_lines = [
